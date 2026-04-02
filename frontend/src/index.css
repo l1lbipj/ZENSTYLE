@@ -1,10 +1,31 @@
-@import url('https://fonts.googleapis.com/css2?family=Manrope&family=Noto+Serif&display=swap');
-:root{
-  --primary-color: #2D3E33;
-  --secondary-color: #C5A059;
-  --tertirany-color: #F5F2ED;
-  --neutral: #F9F7F2;
-  --background-color: #E2F6E6;
+@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&family=Noto+Serif:ital,wght@0,600;0,700;1,500&display=swap');
+
+:root {
+  --primary-color: #2d3e33;
+  --secondary-color: #c5a059;
+  --tertiary-color: #f5f2ed;
+  --neutral: #f9f7f2;
+  --background-color: #e1f4e4;
   --font-heading: 'Noto Serif', serif;
   --font-body: 'Manrope', sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-body);
+  background: #fff;
+  color: var(--primary-color);
+}
+
+img {
+  max-width: 100%;
+  display: block;
+}
+
+a {
+  color: inherit;
 }
