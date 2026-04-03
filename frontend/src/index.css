@@ -8,6 +8,14 @@
   --background-color: #e1f4e4;
   --font-heading: 'Noto Serif', serif;
   --font-body: 'Manrope', sans-serif;
+  /* Home theme (ZenStyle mockup) */
+  --olive: #4a5c45;
+  --olive-deep: #2f3d32;
+  --accent-gold: #c9a84f;
+  --text-main: #1f2420;
+  --text-muted: #4d554e;
+  --text-soft: #7a827b;
+  --surface-card: #fafaf8;
 }
 
 * {
