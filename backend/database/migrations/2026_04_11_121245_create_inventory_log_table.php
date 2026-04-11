@@ -11,10 +11,13 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('allergy', function (Blueprint $table) {
-            $table->id('allergy_id');
-            $table->string('allergy_name',100);
+        Schema::create('inventory_log', function (Blueprint $table) {
+            $table->id('log_id');
+            $table->BigInteger('product_id')->unsigned();
+            $table->integer('change_amount');
+            $table->string('reason',250);
             $table->timestamps();
+            $table->foreign('product_id')->references('product_id')->on('product')->cascadeOnDelete();
         });
     }
 
@@ -23,6 +26,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('allergy');
+        Schema::dropIfExists('inventory_log');
     }
 };

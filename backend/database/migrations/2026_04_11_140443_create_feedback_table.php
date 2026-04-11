@@ -11,10 +11,13 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('allergy', function (Blueprint $table) {
-            $table->id('allergy_id');
-            $table->string('allergy_name',100);
+        Schema::create('feedback', function (Blueprint $table) {
+            $table->id('feedback_id');
+            $table->BigInteger('appointment_id')->unsigned();
+            $table->integer('rate');
+            $table->text('comment')->NULLABLE();
             $table->timestamps();
+            $table->foreign('appointment_id')->references('appointment_id')->on('appointment');
         });
     }
 
@@ -23,6 +26,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('allergy');
+        Schema::dropIfExists('feedback');
     }
 };
