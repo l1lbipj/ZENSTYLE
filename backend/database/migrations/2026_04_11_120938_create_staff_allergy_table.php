@@ -13,11 +13,10 @@ return new class extends Migration
     {
         Schema::create('staff_allergy', function (Blueprint $table) {
             $table->id('staff_allergy_id');
-            $table->BigInteger('staff_id')->unsigned();
-            $table->BigInteger('allergy_id')->unsigned();
+            $table->foreignId('staff_id')->constrained('staff','staff_id')->cascadeOnDelete();
+            $table->foreignId('allergy_id')->constrained('allergy','allergy_id')->cascadeOnDelete();
             $table->timestamps();
-            $table->foreign('staff_id')->references('staff_id')->on('staff')->cascadeOnDelete();
-            $table->foreign('allergy_id')->references('allergy_id')->on('allergy')->cascadeOnDelete();
+            $table->unique(['staff_id', 'allergy_id']);
         });
     }
 

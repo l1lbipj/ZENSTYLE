@@ -13,13 +13,12 @@ return new class extends Migration
     {
         Schema::create('services', function (Blueprint $table) {
             $table->id('service_id');
-            $table->string('service_name',100);
-            $table->decimal('price',19,4);
+            $table->string('service_name',100)->unique();
+            $table->decimal('price',12,2)->unsigned();
             $table->integer('duration');
-            $table->text('description')->NULLABLE();
+            $table->text('description')->nullable();
             $table->timestamps();
-            $table->BigInteger('category_id')->unsigned();
-            $table->foreign('category_id')->references('category_id')->on('service_category')->restrictOnDelete();
+            $table->foreignId('category_id')->constrained('service_category','category_id')->restrictOnDelete();
         });
     }
 

@@ -15,8 +15,8 @@ return new class extends Migration
             $table->id('staff_id');
             $table->string('staff_name',100);
             $table->string('specialization',100);
-            $table->string('phone',15);
-            $table->string('email',100);
+            $table->string('phone',15)->unique();
+            $table->string('email',100)->unique();
             $table->string('password',255);
             $table->enum('status', ['active', 'inactive'])->default('active');
             $table->timestamps();

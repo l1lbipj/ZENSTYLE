@@ -14,13 +14,13 @@ return new class extends Migration
         Schema::create('client', function (Blueprint $table) {
             $table->id('client_id');
             $table->string('client_name',100);
-            $table->string('phone',15);
-            $table->string('email',100);
-            $table->string('password',225);
-            $table->date('dob')->NULLABLE();
+            $table->string('phone',15)->unique();
+            $table->string('email',100)->unique();
+            $table->string('password',255);
+            $table->date('dob')->nullable();
             $table->enum('status',['active', 'inactive'])->default('active');
-            $table->integer('membership_point');
-            $table->enum('membership_tier',['bronze', 'silver', 'gold', 'platinum']);
+            $table->unsignedInteger('membership_point')->default(0);
+            $table->enum('membership_tier',['bronze', 'silver', 'gold', 'platinum'])->default('bronze');
             $table->timestamps();
         });
     }

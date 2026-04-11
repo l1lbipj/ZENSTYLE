@@ -13,11 +13,10 @@ return new class extends Migration
     {
         Schema::create('feedback', function (Blueprint $table) {
             $table->id('feedback_id');
-            $table->BigInteger('appointment_id')->unsigned();
-            $table->integer('rate');
-            $table->text('comment')->NULLABLE();
+            $table->foreignId('appointment_id')->constrained('appointment','appointment_id')->cascadeOnDelete();
+            $table->unsignedTinyInteger('rate');
+            $table->text('comment')->nullable();
             $table->timestamps();
-            $table->foreign('appointment_id')->references('appointment_id')->on('appointment');
         });
     }
 

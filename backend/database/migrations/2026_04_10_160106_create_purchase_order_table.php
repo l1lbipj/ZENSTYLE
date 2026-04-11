@@ -14,12 +14,11 @@ return new class extends Migration
     {
         Schema::create('purchase_order', function (Blueprint $table) {
             $table->id('order_id');
-            $table->BigInteger('supplier_id')->unsigned();
+            $table->foreignId('supplier_id')->constrained('supplier','supplier_id')->restrictOnDelete();
             $table->date('order_date');
-            $table->decimal('total_amount', 19,4);
-            $table->enum('status', ['active', 'inactive']);
+            $table->decimal('total_amount', 12,2)->unsigned();
+            $table->enum('status', ['active', 'inactive'])->default('active');
             $table->timestamps();
-            $table->foreign('supplier_id')->references('supplier_id')->on('supplier')->restrictOnDelete();
         });
         DB::statement('ALTER TABLE purchase_order ADD CONSTRAINT check_total_amount CHECK (total_amount > 0)');
     }

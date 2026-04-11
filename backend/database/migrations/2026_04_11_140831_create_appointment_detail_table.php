@@ -2,6 +2,7 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
@@ -13,24 +14,22 @@ return new class extends Migration
     {
         Schema::create('appointment_detail', function (Blueprint $table) {
             $table->id('detail_id');
-            $table->BigInteger('appointment_id')->unsigned();
-            $table->BigInteger('staff_id')->unsigned();
+            $table->foreignId('appointment_id')->constrained('appointment','appointment_id')->cascadeOnDelete();
+            $table->foreignId('staff_id')->constrained('staff','staff_id')->restrictOnDelete();
             $table->enum('item_type',['skin', 'hair']);
-            $table->BigInteger('service_id')->unsigned()->nullable();
-            $table->BigInteger('product_id')->unsigned()->nullable();
-            $table->integer('quantity');
-            $table->decimal('total_price',19,4);
-            $table->Time('start_time');
-            $table->Time('end_time');
-            $table->enum('status',['active', 'inactive']);
+            $table->foreignId('service_id')->nullable()->constrained('services','service_id')->restrictOnDelete();
+            $table->foreignId('product_id')->nullable()->constrained('product','product_id')->restrictOnDelete();
+            $table->unsignedInteger('quantity');
+            $table->decimal('total_price',12,2)->unsigned();
+            $table->time('start_time');
+            $table->time('end_time');
+            $table->enum('status',['active', 'inactive'])->default('active');
             $table->timestamps();
-            $table->foreign('appointment_id')->references('appointment_id')->on('appointment')->cascadeOnDelete();
-            $table->foreign('staff_id')->references('staff_id')->on('staff')->restrictOnDelete();
-            $table->foreign('service_id')->references('service_id')->on('services')->restrictOnDelete();
-            $table->foreign('product_id')->references('product_id')->on('product')->restrictOnDelete();
         });
         DB::statement('ALTER TABLE appointment_detail ADD CONSTRAINT check_quantity CHECK (quantity > 0)');
         DB::statement('ALTER TABLE appointment_detail ADD CONSTRAINT check_total_price CHECK (total_price > 0)');
+        DB::statement('ALTER TABLE appointment_detail ADD CONSTRAINT check_time_range CHECK (start_time < end_time)');
+        DB::statement('ALTER TABLE appointment_detail ADD CONSTRAINT check_item_reference CHECK (service_id IS NOT NULL OR product_id IS NOT NULL)');
     }
 
     /**

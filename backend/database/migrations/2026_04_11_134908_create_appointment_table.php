@@ -2,6 +2,7 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
@@ -13,17 +14,15 @@ return new class extends Migration
     {
         Schema::create('appointment', function (Blueprint $table) {
             $table->id('appointment_id');
-            $table->BigInteger('client_id')->unsigned();
-            $table->datetime('appointment_date');
-            $table->decimal('total_amount',19,4);
-            $table->BigInteger('promotion_id')->unsigned()->nullable();
-            $table->decimal('final_amount',19,4);
-            $table->enum('payment_method', ['cash','card'])->NULLABLE();
-            $table->enum('payment_status',['pay', 'unpay']);
-            $table->enum('status', ['active', 'inactive']);
+            $table->foreignId('client_id')->constrained('client','client_id')->restrictOnDelete();
+            $table->dateTime('appointment_date');
+            $table->decimal('total_amount',12,2)->unsigned();
+            $table->foreignId('promotion_id')->nullable()->constrained('promotion','promotion_id')->nullOnDelete();
+            $table->decimal('final_amount',12,2)->unsigned();
+            $table->enum('payment_method', ['cash','card'])->nullable();
+            $table->enum('payment_status',['pay', 'unpay'])->default('unpay');
+            $table->enum('status', ['active', 'inactive'])->default('active');
             $table->timestamps();
-            $table->foreign('client_id')->references('client_id')->on('client');
-            $table->foreign('promotion_id')->references('promotion_id')->on('promotion');
         });
         DB::statement('ALTER TABLE appointment ADD CONSTRAINT check_total_amount CHECK (total_amount > 0)');
         DB::statement('ALTER TABLE appointment ADD CONSTRAINT check_final_amount CHECK (final_amount > 0)');

@@ -13,12 +13,11 @@ return new class extends Migration
     {
         Schema::create('client_staff_preference', function (Blueprint $table) {
             $table->id('preference_id');
-            $table->BigInteger('client_id')->unsigned();
-            $table->BigInteger('staff_id')->unsigned();
+            $table->foreignId('client_id')->constrained('client','client_id')->cascadeOnDelete();
+            $table->foreignId('staff_id')->constrained('staff','staff_id')->cascadeOnDelete();
             $table->text('note');
             $table->timestamps();
-            $table->foreign('client_id')->references('client_id')->on('client')->cascadeOnDelete();
-            $table->foreign('staff_id')->references('staff_id')->on('staff')->cascadeOnDelete();
+            $table->unique(['client_id', 'staff_id']);
         });
     }
 

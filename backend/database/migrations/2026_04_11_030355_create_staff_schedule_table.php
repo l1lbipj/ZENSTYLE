@@ -13,14 +13,13 @@ return new class extends Migration
     {
         Schema::create('staff_schedule', function (Blueprint $table) {
             $table->id('schedule_id');
-            $table->BigInteger('staff_id')->unsigned();
+            $table->foreignId('staff_id')->constrained('staff','staff_id')->cascadeOnDelete();
             $table->date('date');
             $table->time('check_in');
             $table->time('check_out');
-            $table->BigInteger('shift_id')->unsigned();
+            $table->foreignId('shift_id')->constrained('work_shift','shift_id')->restrictOnDelete();
             $table->timestamps();
-            $table->foreign('staff_id')->references('staff_id')->on('staff')->cascadeOnDelete();
-            $table->foreign('shift_id')->references('shift_id')->on('work_shift')->restrictOnDelete();
+            $table->unique(['staff_id', 'date', 'shift_id']);
         });
     }
 

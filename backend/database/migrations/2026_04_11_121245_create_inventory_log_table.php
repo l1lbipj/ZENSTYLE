@@ -13,11 +13,10 @@ return new class extends Migration
     {
         Schema::create('inventory_log', function (Blueprint $table) {
             $table->id('log_id');
-            $table->BigInteger('product_id')->unsigned();
+            $table->foreignId('product_id')->constrained('product','product_id')->restrictOnDelete();
             $table->integer('change_amount');
             $table->string('reason',250);
             $table->timestamps();
-            $table->foreign('product_id')->references('product_id')->on('product')->cascadeOnDelete();
         });
     }
 

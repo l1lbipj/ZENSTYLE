@@ -13,11 +13,10 @@ return new class extends Migration
     {
         Schema::create('client_product_preference', function (Blueprint $table) {
             $table->id('preference_id');
-            $table->BigInteger('client_id')->unsigned();
-            $table->BigInteger('allergy_id')->unsigned();
+            $table->foreignId('client_id')->constrained('client','client_id')->cascadeOnDelete();
+            $table->foreignId('allergy_id')->constrained('allergy','allergy_id')->cascadeOnDelete();
             $table->timestamps();
-            $table->foreign('client_id')->references('client_id')->on('client')->cascadeOnDelete();
-            $table->foreign('allergy_id')->references('allergy_id')->on('allergy')->cascadeOnDelete();
+            $table->unique(['client_id', 'allergy_id']);
         });
     }
 
