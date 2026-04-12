@@ -3,68 +3,99 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use Illuminate\Http\Request;
+use App\Http\Requests\Api\StoreClientRequest;
+use App\Http\Requests\Api\UpdateClientRequest;
+use App\Http\Responses\ApiResponse;
 use App\Models\Client;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Validation\Rules\Password;
 
 class ClientController extends Controller
 {
-    // GET all clients
     public function index()
     {
         $clients = Client::paginate(10);
 
-        return response()->json([
-            'status' => true,
-            'data' => $clients,
-        ]);
+        return ApiResponse::success(
+            $clients,
+            'Clients retrieved.',
+        );
     }
 
-    // GET client by id
-    public function show($id)
+    public function show(Request $request, string $id)
+    {
+        if ((int) $id !== (int) $request->user()->getKey()) {
+            return ApiResponse::error(
+                'You are not allowed to view this client record.',
+                403,
+                'FORBIDDEN',
+            );
+        }
+
+        $client = Client::find($id);
+
+        if (! $client) {
+            return ApiResponse::error('Client not found.', 404, 'NOT_FOUND');
+        }
+
+        return ApiResponse::success($client, 'Client retrieved.');
+    }
+
+    public function store(StoreClientRequest $request)
+    {
+        $data = $request->validated();
+        $client = Client::create([
+            'client_name' => $data['client_name'],
+            'phone' => $data['phone'] ?? null,
+            'email' => $data['email'],
+            'password' => Hash::make($data['password']),
+            'dob' => $data['dob'] ?? null,
+            'status' => $data['status'] ?? 'active',
+            'membership_point' => 0,
+            'membership_tier' => 'bronze',
+        ]);
+
+        return ApiResponse::success($client, 'Client created.', 201);
+    }
+
+    public function update(UpdateClientRequest $request, string $id)
     {
         $client = Client::find($id);
 
         if (! $client) {
-            return response()->json([
-                'status' => false,
-                'message' => 'Client not found!',
-            ], 404);
+            return ApiResponse::error('Client not found.', 404, 'NOT_FOUND');
         }
 
-        return response()->json([
-            'status' => true,
-            'data' => $client,
-        ], 200);
+        $data = $request->validated();
+
+        if (array_key_exists('password', $data) && $data['password'] !== null) {
+            $data['password'] = Hash::make($data['password']);
+        } else {
+            unset($data['password']);
+        }
+
+        $client->update($data);
+
+        return ApiResponse::success($client->fresh(), 'Client updated.');
     }
-    //POST api/client
-    public function store(Request $request){
-        $request->validate([
-            'client_name' => 'required',
-            'phone' => 'nullable|unique:client',
-            'email' => 'required|email|unique:client',
-            'password' =>[
-                'required',
-                'confirmed',
-                Password::min(8)->letters()->mixedCase()->numbers()->symbols()
-            ],
-            'dob' => 'nullable|date',
-            'status' => 'nullable|in:active,inactive',
-        ]);
-        $client = Client::create([
-            'client_name' => $request->client_name,
-            'phone' => $request->phone,
-            'email' => $request->email,
-            'password' => Hash::make($request->password),
-            'dob' => $request->dob,
-            'status' => $request->status ?? 'active',
-            'membership_point' => $request->membership_point ?? 0,
-            'membership_tier' => $request->membership_tier ?? 'bronze',
-        ]);
-        return response()->json([
-            'status' => true,
-            'data' => $client,
-        ], 201);
+
+    public function destroy(Request $request, string $id)
+    {
+        if ((int) $id !== (int) $request->user()->getKey()) {
+            return ApiResponse::error(
+                'You are not allowed to delete this client record.',
+                403,
+                'FORBIDDEN',
+            );
+        }
+
+        $client = Client::find($id);
+        if (! $client) {
+            return ApiResponse::error('Client not found.', 404, 'NOT_FOUND');
+        }
+
+        $client->delete();
+
+        return ApiResponse::success(null, 'Deleted successfully.');
     }
 }

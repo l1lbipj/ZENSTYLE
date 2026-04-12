@@ -2,13 +2,19 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Model;
+use Illuminate\Foundation\Auth\User as Authenticatable;
+use Laravel\Sanctum\HasApiTokens;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 
-class Client extends Model
+class Client extends Authenticatable
 {
+    use HasApiTokens, HasFactory;
+
     protected $table = 'client';
     protected $primaryKey = 'client_id';
-    protected $hidden = ['password'];
+    //public $incrementing = true;
+    //protected $keyType = 'int';
+    public $timestamps = true;
     protected $fillable = [
         'client_name',
         'phone',
@@ -18,5 +24,9 @@ class Client extends Model
         'status',
         'membership_point',
         'membership_tier',
+    ];
+
+    protected $hidden = [
+        'password',
     ];
 }
