@@ -14,8 +14,8 @@ return new class extends Migration
         Schema::create('client', function (Blueprint $table) {
             $table->id('client_id');
             $table->string('client_name',100);
-            $table->string('phone',15)->unique();
-            $table->string('email',100)->unique();
+            $table->string('phone',15)->unique()->nullable();
+            $table->string('email',100)->unique()->nullable();
             $table->string('password',255);
             $table->date('dob')->nullable();
             $table->enum('status',['active', 'inactive'])->default('active');
