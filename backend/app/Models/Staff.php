@@ -2,29 +2,28 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Laravel\Sanctum\HasApiTokens;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 
-class Client extends Authenticatable
+class Staff extends Authenticatable
 {
     use HasApiTokens, HasFactory, SoftDeletes;
 
-    protected $table = 'client';
-    protected $primaryKey = 'client_id';
+    protected $table = 'staff';
+    protected $primaryKey = 'staff_id';
     public $timestamps = true;
     protected $fillable = [
-        'client_name',
+        'staff_name',
+        'specialization',
         'phone',
         'email',
         'password',
         'dob',
         'status',
-        'membership_point',
-        'membership_tier',
     ];
-
     protected $hidden = [
         'password',
     ];

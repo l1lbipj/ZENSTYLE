@@ -12,9 +12,21 @@ use Illuminate\Support\Facades\Hash;
 
 class ClientController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        $clients = Client::paginate(10);
+        // Check if user has client ability
+        if (!$request->user() || !in_array('client', $request->user()->currentAccessToken()->abilities ?? [])) {
+            return ApiResponse::error('Access denied.', 403, 'FORBIDDEN');
+        }
+
+        $validated = $request->validate([
+            'per_page' => 'nullable|integer|min:1|max:100',
+            'page' => 'nullable|integer|min:1',
+        ]);
+
+        $perPage = $validated['per_page'] ?? 10;
+
+        $clients = Client::paginate($perPage);
 
         return ApiResponse::success(
             $clients,
@@ -24,6 +36,11 @@ class ClientController extends Controller
 
     public function show(Request $request, string $id)
     {
+        // Check if user has client ability
+        if (!$request->user() || !in_array('client', $request->user()->currentAccessToken()->abilities ?? [])) {
+            return ApiResponse::error('Access denied.', 403, 'FORBIDDEN');
+        }
+
         if ((int) $id !== (int) $request->user()->getKey()) {
             return ApiResponse::error(
                 'You are not allowed to view this client record.',
@@ -43,6 +60,11 @@ class ClientController extends Controller
 
     public function store(StoreClientRequest $request)
     {
+        // Check if user has client ability
+        if (!$request->user() || !in_array('client', $request->user()->currentAccessToken()->abilities ?? [])) {
+            return ApiResponse::error('Access denied.', 403, 'FORBIDDEN');
+        }
+
         $data = $request->validated();
         $client = Client::create([
             'client_name' => $data['client_name'],
@@ -60,6 +82,11 @@ class ClientController extends Controller
 
     public function update(UpdateClientRequest $request, string $id)
     {
+        // Check if user has client ability
+        if (!$request->user() || !in_array('client', $request->user()->currentAccessToken()->abilities ?? [])) {
+            return ApiResponse::error('Access denied.', 403, 'FORBIDDEN');
+        }
+
         $client = Client::find($id);
 
         if (! $client) {
@@ -81,21 +108,32 @@ class ClientController extends Controller
 
     public function destroy(Request $request, string $id)
     {
+        // Check if user has client ability
+        if (!$request->user() || !in_array('client', $request->user()->currentAccessToken()->abilities ?? [])) {
+            return ApiResponse::error('Access denied.', 403, 'FORBIDDEN');
+        }
+
+        // Chỉ cho phép xóa chính mình
         if ((int) $id !== (int) $request->user()->getKey()) {
             return ApiResponse::error(
-                'You are not allowed to delete this client record.',
+                'You can only delete your own account.',
                 403,
                 'FORBIDDEN',
             );
         }
 
-        $client = Client::find($id);
+        $client = Client::withTrashed()->find($id);
         if (! $client) {
             return ApiResponse::error('Client not found.', 404, 'NOT_FOUND');
         }
 
+        // Nếu đã bị xóa mềm, không cho xóa lại
+        if ($client->trashed()) {
+            return ApiResponse::error('Client already deleted.', 410, 'GONE');
+        }
+
         $client->delete();
 
-        return ApiResponse::success(null, 'Deleted successfully.');
+        return ApiResponse::success(null, 'Client deleted successfully.');
     }
 }

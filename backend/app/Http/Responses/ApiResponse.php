@@ -9,9 +9,11 @@ final class ApiResponse
     public static function success(mixed $data = null, string $message = 'OK', int $status = 200, ?array $meta = null): JsonResponse
     {
         $body = [
+            'api_version' => 'v1',
             'success' => true,
             'message' => $message,
             'data' => $data,
+            'timestamp' => now()->toISOString(),
         ];
         if ($meta !== null) {
             $body['meta'] = $meta;
@@ -27,8 +29,10 @@ final class ApiResponse
         ?array $errors = null,
     ): JsonResponse {
         $body = [
+            'api_version' => 'v1',
             'success' => false,
             'message' => $message,
+            'timestamp' => now()->toISOString(),
         ];
         if ($code !== null) {
             $body['code'] = $code;

@@ -2,23 +2,26 @@
 
 namespace App\Http\Requests\Api;
 
-use Illuminate\Contracts\Validation\ValidationRule;
 use App\Http\Responses\ApiResponse;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Password;
 
-class UpdateClientRequest extends FormRequest
+class UpdateStaffRequest extends FormRequest
 {
+    /**
+     * Determine if the user is authorized to make this request.
+     */
     public function authorize(): bool
     {
         $id = (int) $this->route('id');
-
-        return (int) $this->user()->getKey() === $id;
+        return (int) $this->user()->getKey() === $id; // Chỉ cho phép update chính mình
     }
 
     /**
+     * Get the validation rules that apply to the request.
+     *
      * @return array<string, mixed>
      */
     public function rules(): array
@@ -26,7 +29,8 @@ class UpdateClientRequest extends FormRequest
         $id = $this->route('id');
 
         return [
-            'client_name' => ['sometimes', 'string', 'max:100', 'min:2'],
+            'staff_name' => ['sometimes', 'string', 'max:100', 'min:2'],
+            'specialization' => ['sometimes', 'string', 'max:100'],
             'phone' => [
                 'nullable',
                 'string',
@@ -34,8 +38,8 @@ class UpdateClientRequest extends FormRequest
                 'regex:/^[\+]?[0-9\-\(\)\s]+$/',
                 function ($attribute, $value, $fail) use ($id) {
                     if ($value) {
-                        $existsInClient = \App\Models\Client::where('phone', $value)->where('client_id', '!=', $id)->exists();
-                        $existsInStaff = \App\Models\Staff::where('phone', $value)->exists();
+                        $existsInClient = \App\Models\Client::where('phone', $value)->exists();
+                        $existsInStaff = \App\Models\Staff::where('phone', $value)->where('staff_id', '!=', $id)->exists();
                         if ($existsInClient || $existsInStaff) {
                             $fail('The phone has already been taken.');
                         }
@@ -47,8 +51,8 @@ class UpdateClientRequest extends FormRequest
                 'email:rfc,dns',
                 'max:100',
                 function ($attribute, $value, $fail) use ($id) {
-                    $existsInClient = \App\Models\Client::where('email', $value)->where('client_id', '!=', $id)->exists();
-                    $existsInStaff = \App\Models\Staff::where('email', $value)->exists();
+                    $existsInClient = \App\Models\Client::where('email', $value)->exists();
+                    $existsInStaff = \App\Models\Staff::where('email', $value)->where('staff_id', '!=', $id)->exists();
                     if ($existsInClient || $existsInStaff) {
                         $fail('The email has already been taken.');
                     }
@@ -62,8 +66,6 @@ class UpdateClientRequest extends FormRequest
             ],
             'dob' => ['nullable', 'date', 'before:today', 'after:1900-01-01'],
             'status' => ['nullable', 'in:active,inactive'],
-            'membership_point' => ['nullable', 'integer', 'min:0', 'max:1000000'],
-            'membership_tier' => ['nullable', Rule::in(['bronze', 'silver', 'gold', 'platinum'])],
         ];
     }
 
@@ -71,7 +73,7 @@ class UpdateClientRequest extends FormRequest
     {
         throw new HttpResponseException(
             ApiResponse::error(
-                'You are not allowed to modify this client record.',
+                'You are not allowed to modify this staff record.',
                 403,
                 'FORBIDDEN',
             ),
