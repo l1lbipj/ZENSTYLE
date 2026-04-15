@@ -14,8 +14,9 @@ class ClientController extends Controller
 {
     public function index(Request $request)
     {
-        // Check if user has client ability
-        if (!$request->user() || !in_array('client', $request->user()->currentAccessToken()->abilities ?? [])) {
+        // Only admin can view all clients
+        $abilities = $request->user()->currentAccessToken()->abilities ?? [];
+        if (!$request->user() || !in_array('admin', $abilities)) {
             return ApiResponse::error('Access denied.', 403, 'FORBIDDEN');
         }
 
@@ -36,12 +37,11 @@ class ClientController extends Controller
 
     public function show(Request $request, string $id)
     {
-        // Check if user has client ability
-        if (!$request->user() || !in_array('client', $request->user()->currentAccessToken()->abilities ?? [])) {
-            return ApiResponse::error('Access denied.', 403, 'FORBIDDEN');
-        }
+        $abilities = $request->user()->currentAccessToken()->abilities ?? [];
+        $isAdmin = in_array('admin', $abilities);
 
-        if ((int) $id !== (int) $request->user()->getKey()) {
+        // If not admin, only allow viewing their own record
+        if (!$isAdmin && (int) $id !== (int) $request->user()->getKey()) {
             return ApiResponse::error(
                 'You are not allowed to view this client record.',
                 403,
@@ -60,8 +60,9 @@ class ClientController extends Controller
 
     public function store(StoreClientRequest $request)
     {
-        // Check if user has client ability
-        if (!$request->user() || !in_array('client', $request->user()->currentAccessToken()->abilities ?? [])) {
+        // Only admin can create clients
+        $abilities = $request->user()->currentAccessToken()->abilities ?? [];
+        if (!$request->user() || !in_array('admin', $abilities)) {
             return ApiResponse::error('Access denied.', 403, 'FORBIDDEN');
         }
 
@@ -82,9 +83,16 @@ class ClientController extends Controller
 
     public function update(UpdateClientRequest $request, string $id)
     {
-        // Check if user has client ability
-        if (!$request->user() || !in_array('client', $request->user()->currentAccessToken()->abilities ?? [])) {
-            return ApiResponse::error('Access denied.', 403, 'FORBIDDEN');
+        $abilities = $request->user()->currentAccessToken()->abilities ?? [];
+        $isAdmin = in_array('admin', $abilities);
+
+        // If not admin, only allow updating their own record
+        if (!$isAdmin && (int) $id !== (int) $request->user()->getKey()) {
+            return ApiResponse::error(
+                'You are not allowed to update this client record.',
+                403,
+                'FORBIDDEN',
+            );
         }
 
         $client = Client::find($id);
@@ -108,13 +116,11 @@ class ClientController extends Controller
 
     public function destroy(Request $request, string $id)
     {
-        // Check if user has client ability
-        if (!$request->user() || !in_array('client', $request->user()->currentAccessToken()->abilities ?? [])) {
-            return ApiResponse::error('Access denied.', 403, 'FORBIDDEN');
-        }
+        $abilities = $request->user()->currentAccessToken()->abilities ?? [];
+        $isAdmin = in_array('admin', $abilities);
 
-        // Chỉ cho phép xóa chính mình
-        if ((int) $id !== (int) $request->user()->getKey()) {
+        // If not admin, only allow deleting their own account
+        if (!$isAdmin && (int) $id !== (int) $request->user()->getKey()) {
             return ApiResponse::error(
                 'You can only delete your own account.',
                 403,

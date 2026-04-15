@@ -7,6 +7,7 @@ use App\Http\Requests\Api\LoginRequest;
 use App\Http\Requests\Api\StoreClientRequest;
 use App\Http\Requests\Api\StoreStaffRequest;
 use App\Http\Responses\ApiResponse;
+use App\Models\Admin;
 use App\Models\Client;
 use App\Models\Staff;
 use Illuminate\Http\Request;
@@ -103,12 +104,18 @@ class AuthController extends Controller
             $type = 'staff';
         }
 
+        if (! $user) {
+            $user = Admin::where('email', $email)->first();
+            $type = 'admin';
+        }
+
         if (! $user || ! Hash::check($password, $user->password)) {
             return ApiResponse::error('Invalid credentials.', 401, 'INVALID_CREDENTIALS');
         }
 
-        $tokenName = $type === 'client' ? 'client-token' : 'staff-token';
+        $tokenName = $user->email . '-' . now()->timestamp;
         $abilities = [$type];
+
         $token = $user->createToken($tokenName, $abilities, now()->addHours(24))->plainTextToken;
 
         return ApiResponse::success(
@@ -131,7 +138,7 @@ class AuthController extends Controller
             return ApiResponse::error('Invalid token.', 401, 'UNAUTHENTICATED');
         }
 
-        $expectedAbility = $user instanceof Client ? 'client' : 'staff';
+        $expectedAbility = $user instanceof Client ? 'client' : ($user instanceof Staff ? 'staff' : 'admin');
         if (!in_array($expectedAbility, $token->abilities)) {
             return ApiResponse::error('Insufficient permissions.', 403, 'FORBIDDEN');
         }
@@ -151,7 +158,7 @@ class AuthController extends Controller
             return ApiResponse::error('Invalid token.', 401, 'UNAUTHENTICATED');
         }
 
-        $expectedAbility = $user instanceof Client ? 'client' : 'staff';
+        $expectedAbility = $user instanceof Client ? 'client' : ($user instanceof Staff ? 'staff' : 'admin');
         if (!in_array($expectedAbility, $token->abilities)) {
             return ApiResponse::error('Insufficient permissions.', 403, 'FORBIDDEN');
         }
