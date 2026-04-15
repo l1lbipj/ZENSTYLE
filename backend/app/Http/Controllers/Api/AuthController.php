@@ -11,7 +11,9 @@ use App\Models\Admin;
 use App\Models\Client;
 use App\Models\Staff;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Laravel\Sanctum\PersonalAccessToken;
 
@@ -125,6 +127,62 @@ class AuthController extends Controller
                 'user_type' => $type,
             ],
             'Login successful.',
+            200,
+        );
+    }
+
+    public function googleLogin(Request $request)
+    {
+        $validated = $request->validate([
+            'credential' => ['required', 'string'],
+        ]);
+
+        $googleResponse = Http::get('https://oauth2.googleapis.com/tokeninfo', [
+            'id_token' => $validated['credential'],
+        ]);
+
+        if (! $googleResponse->ok()) {
+            return ApiResponse::error('Invalid Google credential.', 401, 'INVALID_GOOGLE_CREDENTIAL');
+        }
+
+        $googleUser = $googleResponse->json();
+        $email = $googleUser['email'] ?? null;
+        $name = $googleUser['name'] ?? null;
+        $audience = $googleUser['aud'] ?? null;
+        $emailVerified = filter_var($googleUser['email_verified'] ?? false, FILTER_VALIDATE_BOOLEAN);
+        $configuredClientId = config('services.google.client_id');
+
+        if (! $email || ! $name || ! $emailVerified) {
+            return ApiResponse::error('Google account data is invalid.', 422, 'INVALID_GOOGLE_ACCOUNT');
+        }
+
+        if ($configuredClientId && $audience !== $configuredClientId) {
+            return ApiResponse::error('Google client mismatch.', 401, 'GOOGLE_CLIENT_MISMATCH');
+        }
+
+        $client = Client::where('email', $email)->first();
+
+        if (! $client) {
+            $client = Client::create([
+                'client_name' => $name,
+                'email' => $email,
+                'password' => Hash::make(Str::random(32)),
+                'status' => 'active',
+                'membership_point' => 0,
+                'membership_tier' => 'bronze',
+            ]);
+        }
+
+        $tokenName = $client->email . '-' . now()->timestamp;
+        $token = $client->createToken($tokenName, ['client'], now()->addHours(24))->plainTextToken;
+
+        return ApiResponse::success(
+            [
+                'access_token' => $token,
+                'token_type' => 'Bearer',
+                'user_type' => 'client',
+            ],
+            'Google login successful.',
             200,
         );
     }
