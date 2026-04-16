@@ -1,5 +1,8 @@
-import { Link } from 'react-router-dom'
+import { useEffect, useRef, useState } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
 import logo from '../../assets/logo.png'
+import authApi from '../../Api/authApi'
+import { getUser, logout as clearLocalAuth } from '../../utils/auth'
 
 function IconCart() {
   return (
@@ -30,6 +33,35 @@ function IconBell() {
 }
 
 export default function Navbar() {
+  const navigate = useNavigate()
+  const menuRef = useRef(null)
+  const [menuOpen, setMenuOpen] = useState(false)
+  const currentUser = getUser()
+  const displayName = currentUser?.client_name || currentUser?.staff_name || currentUser?.admin_name || currentUser?.email
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (menuRef.current && !menuRef.current.contains(event.target)) {
+        setMenuOpen(false)
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+
+  const handleLogout = async () => {
+    try {
+      await authApi.logout()
+    } catch (_error) {
+      // Always clear local auth even if API call fails.
+    } finally {
+      clearLocalAuth()
+      setMenuOpen(false)
+      navigate('/login')
+    }
+  }
+
   return (
     <header className="zs-nav">
       <div className="zs-nav__inner">
@@ -53,9 +85,70 @@ export default function Navbar() {
           <button type="button" className="zs-nav__icon-btn" aria-label="Notifications">
             <IconBell />
           </button>
-          <Link to="/login" className="zs-btn zs-btn--gold zs-nav__login">
-            Login
-          </Link>
+          {displayName ? (
+            <div ref={menuRef} style={{ position: 'relative' }}>
+              <button
+                type="button"
+                className="zs-btn zs-btn--gold zs-nav__login"
+                title={displayName}
+                onClick={() => setMenuOpen((prev) => !prev)}
+                style={{ border: 'none', cursor: 'pointer' }}
+              >
+                {displayName}
+              </button>
+
+              {menuOpen ? (
+                <div
+                  style={{
+                    position: 'absolute',
+                    top: 'calc(100% + 8px)',
+                    right: 0,
+                    minWidth: '160px',
+                    backgroundColor: '#fff',
+                    border: '1px solid #e5e7eb',
+                    borderRadius: '10px',
+                    boxShadow: '0 10px 24px rgba(0,0,0,0.12)',
+                    overflow: 'hidden',
+                    zIndex: 50,
+                  }}
+                >
+                  <Link
+                    to="/profile"
+                    onClick={() => setMenuOpen(false)}
+                    style={{
+                      display: 'block',
+                      padding: '10px 14px',
+                      color: '#111827',
+                      textDecoration: 'none',
+                      fontSize: '14px',
+                    }}
+                  >
+                    Profile
+                  </Link>
+                  <button
+                    type="button"
+                    onClick={handleLogout}
+                    style={{
+                      width: '100%',
+                      textAlign: 'left',
+                      padding: '10px 14px',
+                      border: 'none',
+                      background: 'transparent',
+                      color: '#dc2626',
+                      fontSize: '14px',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    Logout
+                  </button>
+                </div>
+              ) : null}
+            </div>
+          ) : (
+            <Link to="/login" className="zs-btn zs-btn--gold zs-nav__login">
+              Login
+            </Link>
+          )}
         </div>
       </div>
     </header>

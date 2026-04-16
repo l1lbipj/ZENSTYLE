@@ -1,13 +1,14 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Button, Checkbox, Form, Input, message } from 'antd';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import authApi from '../../Api/authApi';
-import { setAuth } from '../../utils/auth';
+import { logout as clearLocalAuth, setAuth } from '../../utils/auth';
 import loginBanner from '../../assets/login-banner.jpg';
 
 const Login = () => {
   const [submitting, setSubmitting] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
+  const navigate = useNavigate();
   const googleButtonRef = useRef(null);
   const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
 
@@ -24,6 +25,29 @@ const Login = () => {
     return error?.response?.data?.message || error?.message || 'Login failed. Please try again.';
   };
 
+  const authenticateAndHydrateUser = async (loginAction) => {
+    const authResponse = await loginAction();
+    const authPayload = authResponse?.data?.data || authResponse?.data || {};
+
+    setAuth(authResponse?.data);
+
+    try {
+      const profileResponse = await authApi.profile();
+      const profileUser = profileResponse?.data?.data?.user || null;
+      const profileUserType = profileResponse?.data?.data?.user_type || authPayload?.user_type;
+
+      setAuth({
+        access_token: authPayload?.access_token || authPayload?.token,
+        token_type: authPayload?.token_type,
+        user_type: profileUserType,
+        user: profileUser,
+      });
+    } catch (profileError) {
+      clearLocalAuth();
+      throw profileError;
+    }
+  };
+
   const onFinish = async (values) => {
     const payload = {
       email: values.email?.trim().toLowerCase(),
@@ -32,9 +56,9 @@ const Login = () => {
 
     try {
       setSubmitting(true);
-      const response = await authApi.login(payload);
-      setAuth(response?.data);
+      await authenticateAndHydrateUser(() => authApi.login(payload));
       message.success('Login successful!');
+      navigate('/');
     } catch (error) {
       const errorMessage = getApiErrorMessage(error);
       message.error(errorMessage);
@@ -62,9 +86,9 @@ const Login = () => {
         callback: async (googleResponse) => {
           try {
             setGoogleLoading(true);
-            const response = await authApi.googleLogin({ credential: googleResponse.credential });
-            setAuth(response?.data);
+            await authenticateAndHydrateUser(() => authApi.googleLogin({ credential: googleResponse.credential }));
             message.success('Google login successful!');
+            navigate('/');
           } catch (error) {
             message.error(getApiErrorMessage(error));
           } finally {

@@ -15,6 +15,7 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
+use Throwable;
 use Laravel\Sanctum\PersonalAccessToken;
 
 class AuthController extends Controller
@@ -136,10 +137,23 @@ class AuthController extends Controller
         $validated = $request->validate([
             'credential' => ['required', 'string'],
         ]);
+        $httpClient = Http::acceptJson()->timeout(10);
+        if (app()->environment('local')) {
+            // Local Windows setups may fail CA verification when calling Google.
+            $httpClient = $httpClient->withoutVerifying();
+        }
 
-        $googleResponse = Http::get('https://oauth2.googleapis.com/tokeninfo', [
-            'id_token' => $validated['credential'],
-        ]);
+        try {
+            $googleResponse = $httpClient->get('https://oauth2.googleapis.com/tokeninfo', [
+                'id_token' => $validated['credential'],
+            ]);
+        } catch (Throwable $exception) {
+            return ApiResponse::error(
+                'Unable to verify Google credential at the moment. Please try again.',
+                502,
+                'GOOGLE_VERIFY_FAILED'
+            );
+        }
 
         if (! $googleResponse->ok()) {
             return ApiResponse::error('Invalid Google credential.', 401, 'INVALID_GOOGLE_CREDENTIAL');
@@ -181,6 +195,7 @@ class AuthController extends Controller
                 'access_token' => $token,
                 'token_type' => 'Bearer',
                 'user_type' => 'client',
+                'user' => $client,
             ],
             'Google login successful.',
             200,

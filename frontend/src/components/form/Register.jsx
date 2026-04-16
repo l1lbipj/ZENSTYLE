@@ -40,7 +40,7 @@ const Register = () => {
     try {
       setSubmitting(true);
       const response = await authApi.register(payload);
-      const successMessage = response?.message || 'Register successful! Please sign in.';
+      const successMessage = response?.data?.message || 'Register successful! Please sign in.';
       message.success(successMessage);
       navigate('/login');
     } catch (error) {
