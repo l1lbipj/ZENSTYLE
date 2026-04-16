@@ -11,13 +11,13 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('staff_schedule', function (Blueprint $table) {
+        Schema::create('staff_schedules', function (Blueprint $table) {
             $table->id('schedule_id');
             $table->foreignId('staff_id')->constrained('staff','staff_id')->cascadeOnDelete();
             $table->date('date');
             $table->time('check_in');
             $table->time('check_out');
-            $table->foreignId('shift_id')->constrained('work_shift','shift_id')->restrictOnDelete();
+            $table->foreignId('shift_id')->constrained('work_shifts','shift_id')->restrictOnDelete();
             $table->timestamps();
             $table->unique(['staff_id', 'date', 'shift_id']);
         });
@@ -28,6 +28,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('staff_schedule');
+        Schema::dropIfExists('staff_schedules');
     }
 };

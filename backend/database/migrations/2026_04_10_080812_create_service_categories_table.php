@@ -11,9 +11,9 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('work_shift', function (Blueprint $table) {
-            $table->id('shift_id');
-            $table->string('shift_name',100);
+        Schema::create('service_categories', function (Blueprint $table) {
+            $table->id('category_id');
+            $table->string('category_name',100);
             $table->timestamps();
         });
     }
@@ -23,6 +23,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('work_shift');
+        Schema::dropIfExists('service_categories');
     }
 };

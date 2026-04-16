@@ -12,15 +12,15 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('purchase_order', function (Blueprint $table) {
+        Schema::create('purchase_orders', function (Blueprint $table) {
             $table->id('order_id');
-            $table->foreignId('supplier_id')->constrained('supplier','supplier_id')->restrictOnDelete();
+            $table->foreignId('supplier_id')->constrained('suppliers','supplier_id')->restrictOnDelete();
             $table->date('order_date');
             $table->decimal('total_amount', 12,2)->unsigned();
             $table->enum('status', ['active', 'inactive'])->default('active');
             $table->timestamps();
         });
-        DB::statement('ALTER TABLE purchase_order ADD CONSTRAINT check_total_amount CHECK (total_amount > 0)');
+        DB::statement('ALTER TABLE purchase_orders ADD CONSTRAINT check_total_amount CHECK (total_amount > 0)');
     }
 
     /**
@@ -28,6 +28,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('purchase_order');
+        Schema::dropIfExists('purchase_orders');
     }
 };

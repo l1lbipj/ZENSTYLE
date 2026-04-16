@@ -13,9 +13,9 @@ return new class extends Migration
     {
         Schema::create('feedback', function (Blueprint $table) {
             $table->id('feedback_id');
-            $table->foreignId('appointment_id')->constrained('appointment','appointment_id')->cascadeOnDelete();
-            $table->unsignedTinyInteger('rate');
-            $table->text('comment')->nullable();
+            $table->foreignId('appointment_id')->constrained('appointments','appointment_id')->cascadeOnDelete();
+            $table->unsignedTinyInteger('rating');
+            $table->text('notes')->nullable();
             $table->timestamps();
         });
     }

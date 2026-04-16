@@ -18,7 +18,7 @@ return new class extends Migration
             $table->integer('duration');
             $table->text('description')->nullable();
             $table->timestamps();
-            $table->foreignId('category_id')->constrained('service_category','category_id')->restrictOnDelete();
+            $table->foreignId('category_id')->constrained('service_categories','category_id')->restrictOnDelete();
         });
     }
 

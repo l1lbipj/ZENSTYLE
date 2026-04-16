@@ -27,4 +27,19 @@ class Staff extends Authenticatable
     protected $hidden = [
         'password',
     ];
+
+    public function clientStaffReferences()
+    {
+        return $this->hasMany(ClientStaffReference::class, 'staff_id', 'staff_id');
+    }
+
+    public function appointments()
+    {
+        return $this->hasMany(Appointment::class, 'staff', 'staff_id', 'appointment_id');
+    }
+
+    public function staffSchedules()
+    {
+        return $this->hasMany(StaffSchedule::class, 'staff_id', 'staff_id');
+    }
 }

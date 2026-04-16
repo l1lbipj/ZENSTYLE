@@ -12,7 +12,7 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('product', function (Blueprint $table) {
+        Schema::create('products', function (Blueprint $table) {
             $table->id('product_id');
             $table->string('product_name',50);
             $table->unsignedInteger('stock_quantity');
@@ -21,8 +21,8 @@ return new class extends Migration
             $table->unsignedInteger('min_stock_level')->default(0);
             $table->timestamps();
         });
-        DB::statement('ALTER TABLE product ADD CONSTRAINT check_stock_quantity CHECK (stock_quantity > 0)');
-        DB::statement('ALTER TABLE product ADD CONSTRAINT check_unit_price CHECK (unit_price > 0)');
+        DB::statement('ALTER TABLE products ADD CONSTRAINT check_stock_quantity CHECK (stock_quantity > 0)');
+        DB::statement('ALTER TABLE products ADD CONSTRAINT check_unit_price CHECK (unit_price > 0)');
     }
 
     /**
@@ -30,6 +30,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('product');
+        Schema::dropIfExists('products');
     }
 };

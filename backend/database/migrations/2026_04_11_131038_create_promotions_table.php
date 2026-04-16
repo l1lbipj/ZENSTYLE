@@ -12,7 +12,7 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('promotion', function (Blueprint $table) {
+        Schema::create('promotions', function (Blueprint $table) {
             $table->id('promotion_id');
             $table->string('apply_type',100);
             $table->foreignId('service_id')->nullable()->constrained('services','service_id')->nullOnDelete();
@@ -22,7 +22,7 @@ return new class extends Migration
             $table->unsignedInteger('usage_limit')->default(1);
             $table->timestamps();
         });
-        DB::statement('ALTER TABLE promotion ADD CONSTRAINT check_usage_limit CHECK (usage_limit > 0)');
+        DB::statement('ALTER TABLE promotions ADD CONSTRAINT check_usage_limit CHECK (usage_limit > 0)');
     }
 
     /**
@@ -30,6 +30,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('promotion');
+        Schema::dropIfExists('promotions');
     }
 };
