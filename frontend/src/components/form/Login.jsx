@@ -251,9 +251,9 @@ const Login = () => {
                   }}
                 >
                   <Checkbox>Remember me</Checkbox>
-                  <a href="#" style={{ color: '#2563eb', fontSize: '14px' }}>
+                  <Link to="/forgot-password" style={{ color: '#2563eb', fontSize: '14px' }}>
                     Forgot password?
-                  </a>
+                  </Link>
                 </div>
               </Form.Item>
 

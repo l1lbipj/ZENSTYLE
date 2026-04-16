@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Mail\PasswordResetOtpMail;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\LoginRequest;
 use App\Http\Requests\Api\StoreClientRequest;
@@ -9,10 +10,12 @@ use App\Http\Requests\Api\StoreStaffRequest;
 use App\Http\Responses\ApiResponse;
 use App\Models\Admin;
 use App\Models\Client;
+use App\Models\PasswordResetOtp;
 use App\Models\Staff;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Throwable;
@@ -20,6 +23,13 @@ use Laravel\Sanctum\PersonalAccessToken;
 
 class AuthController extends Controller
 {
+    private function resolveUserByEmail(string $email): Client|Staff|Admin|null
+    {
+        return Client::where('email', $email)->first()
+            ?? Staff::where('email', $email)->first()
+            ?? Admin::where('email', $email)->first();
+    }
+
     public function register(Request $request)
     {
         $validated = $request->validate([
@@ -220,6 +230,131 @@ class AuthController extends Controller
             'user' => $user,
             'user_type' => $expectedAbility,
         ], 'Profile retrieved.');
+    }
+
+    public function forgotPassword(Request $request)
+    {
+        $validated = $request->validate([
+            'email' => ['required', 'email', 'max:100'],
+        ]);
+
+        $email = strtolower(trim($validated['email']));
+        $user = $this->resolveUserByEmail($email);
+
+        if (! $user) {
+            return ApiResponse::error('Email is not registered.', 404, 'EMAIL_NOT_FOUND');
+        }
+
+        PasswordResetOtp::where('email', $email)->delete();
+
+        $otp = str_pad((string) random_int(0, 99999), 5, '0', STR_PAD_LEFT);
+        $expiresAt = now()->addMinutes(5);
+
+        PasswordResetOtp::create([
+            'email' => $email,
+            'otp_hash' => Hash::make($otp),
+            'expires_at' => $expiresAt,
+        ]);
+
+        $displayExpiry = $expiresAt->copy()->timezone(config('app.timezone'));
+        $displayExpiryText = $displayExpiry->format('d/m/Y H:i') . ' (UTC' . $displayExpiry->format('P') . ')';
+
+        Mail::to($email)->send(new PasswordResetOtpMail($otp, $displayExpiryText));
+
+        return ApiResponse::success(
+            [
+                'email' => $email,
+                'expires_at' => $expiresAt->toISOString(),
+            ],
+            'OTP sent to your email.'
+        );
+    }
+
+    public function verifyOtp(Request $request)
+    {
+        $validated = $request->validate([
+            'email' => ['required', 'email', 'max:100'],
+            'otp' => ['required', 'digits:5'],
+        ]);
+
+        $email = strtolower(trim($validated['email']));
+        $otp = $validated['otp'];
+
+        $otpRecord = PasswordResetOtp::where('email', $email)->latest('id')->first();
+
+        if (! $otpRecord) {
+            return ApiResponse::error('OTP not found. Please request a new one.', 404, 'OTP_NOT_FOUND');
+        }
+
+        if ($otpRecord->expires_at->isPast()) {
+            $otpRecord->delete();
+            return ApiResponse::error('OTP has expired. Please request a new one.', 422, 'OTP_EXPIRED');
+        }
+
+        if (! Hash::check($otp, $otpRecord->otp_hash)) {
+            return ApiResponse::error('Invalid OTP.', 422, 'INVALID_OTP');
+        }
+
+        return ApiResponse::success(
+            [
+                'email' => $email,
+                'verified' => true,
+            ],
+            'OTP verified successfully.'
+        );
+    }
+
+    public function resetPassword(Request $request)
+    {
+        $validated = $request->validate([
+            'email' => ['required', 'email', 'max:100'],
+            'otp' => ['required', 'digits:5'],
+            'password' => [
+                'required',
+                'string',
+                'confirmed',
+                'min:8',
+                'regex:/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&]).+$/',
+            ],
+        ]);
+
+        $email = strtolower(trim($validated['email']));
+        $otp = $validated['otp'];
+        $otpRecord = PasswordResetOtp::where('email', $email)->latest('id')->first();
+
+        if (! $otpRecord) {
+            return ApiResponse::error('OTP not found. Please request a new one.', 404, 'OTP_NOT_FOUND');
+        }
+
+        if ($otpRecord->expires_at->isPast()) {
+            $otpRecord->delete();
+            return ApiResponse::error('OTP has expired. Please request a new one.', 422, 'OTP_EXPIRED');
+        }
+
+        if (! Hash::check($otp, $otpRecord->otp_hash)) {
+            return ApiResponse::error('Invalid OTP.', 422, 'INVALID_OTP');
+        }
+
+        $user = $this->resolveUserByEmail($email);
+
+        if (! $user) {
+            return ApiResponse::error('Email is not registered.', 404, 'EMAIL_NOT_FOUND');
+        }
+
+        if (Hash::check($validated['password'], $user->password)) {
+            return ApiResponse::error(
+                'New password must be different from your current password.',
+                422,
+                'PASSWORD_REUSED'
+            );
+        }
+
+        $user->password = Hash::make($validated['password']);
+        $user->save();
+
+        PasswordResetOtp::where('email', $email)->delete();
+
+        return ApiResponse::success(null, 'Password reset successful. Please login again.');
     }
 
     public function logout(Request $request)
