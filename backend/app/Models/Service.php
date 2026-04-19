@@ -3,10 +3,11 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\MorphMany;
 
 class Service extends Model
 {
-    protected $table = 'service';
+    protected $table = 'services';
     protected $primaryKey = 'service_id';
     public $timestamps = true;
     protected $fillable = [
@@ -17,9 +18,9 @@ class Service extends Model
         'category_id'
     ];
 
-    public function appointments()
+    public function appointmentDetails(): MorphMany
     {
-        return $this->hasMany(Appointment::class, 'service_id', 'service_id');
+        return $this->morphMany(AppointmentDetail::class, 'item', 'item_type', 'item_id');
     }
 
     public function category()

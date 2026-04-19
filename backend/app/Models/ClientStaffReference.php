@@ -6,22 +6,22 @@ use Illuminate\Database\Eloquent\Model;
 
 class ClientStaffReference extends Model
 {
-    protected $table = 'client_staff_reference';
-    protected $primaryKey = 'client_staff_reference_id';
+    protected $table = 'client_staff_preferences';
+    protected $primaryKey = 'preference_id';
     public $timestamps = true;
     protected $fillable = [
         'client_id',
         'staff_id',
-        'notes'
+        'note'
     ];
 
     public function client()
     {
-        return $this->belongsTo(Client::class, 'client_staff_reference', 'client_id', 'client_id');
+        return $this->belongsTo(Client::class, 'client_id', 'client_id');
     }
 
     public function staff()
     {
-        return $this->belongsTo(Staff::class, 'client_staff_reference', 'staff_id', 'staff_id');
+        return $this->belongsTo(Staff::class, 'staff_id', 'staff_id');
     }
 }

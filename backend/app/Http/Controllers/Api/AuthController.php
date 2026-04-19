@@ -147,6 +147,11 @@ class AuthController extends Controller
         $validated = $request->validate([
             'credential' => ['required', 'string'],
         ]);
+        $credential = trim($validated['credential']);
+        if ($credential === '') {
+            return ApiResponse::error('Invalid Google credential.', 401, 'INVALID_GOOGLE_CREDENTIAL');
+        }
+
         $httpClient = Http::acceptJson()->timeout(10);
         if (app()->environment('local')) {
             // Local Windows setups may fail CA verification when calling Google.
@@ -155,7 +160,7 @@ class AuthController extends Controller
 
         try {
             $googleResponse = $httpClient->get('https://oauth2.googleapis.com/tokeninfo', [
-                'id_token' => $validated['credential'],
+                'id_token' => $credential,
             ]);
         } catch (Throwable $exception) {
             return ApiResponse::error(
@@ -170,21 +175,47 @@ class AuthController extends Controller
         }
 
         $googleUser = $googleResponse->json();
-        $email = $googleUser['email'] ?? null;
-        $name = $googleUser['name'] ?? null;
+        $email = strtolower(trim((string) ($googleUser['email'] ?? '')));
+        $name = trim((string) ($googleUser['name'] ?? $googleUser['given_name'] ?? ''));
+        if ($name === '' && $email !== '') {
+            $name = Str::before($email, '@');
+        }
         $audience = $googleUser['aud'] ?? null;
+        $issuer = $googleUser['iss'] ?? null;
         $emailVerified = filter_var($googleUser['email_verified'] ?? false, FILTER_VALIDATE_BOOLEAN);
-        $configuredClientId = config('services.google.client_id');
+        $configuredClientId = trim((string) config('services.google.client_id'));
 
-        if (! $email || ! $name || ! $emailVerified) {
+        if ($email === '' || $name === '' || ! $emailVerified) {
             return ApiResponse::error('Google account data is invalid.', 422, 'INVALID_GOOGLE_ACCOUNT');
         }
 
-        if ($configuredClientId && $audience !== $configuredClientId) {
+        if ($issuer !== null && ! in_array($issuer, ['accounts.google.com', 'https://accounts.google.com'], true)) {
+            return ApiResponse::error('Google token issuer is invalid.', 401, 'INVALID_GOOGLE_ISSUER');
+        }
+
+        if (app()->environment('production') && $configuredClientId === '') {
+            return ApiResponse::error(
+                'Google login is not configured. Please contact support.',
+                500,
+                'GOOGLE_CLIENT_NOT_CONFIGURED'
+            );
+        }
+
+        if ($configuredClientId !== '' && $audience !== $configuredClientId) {
             return ApiResponse::error('Google client mismatch.', 401, 'GOOGLE_CLIENT_MISMATCH');
         }
 
-        $client = Client::where('email', $email)->first();
+        $staffExists = Staff::where('email', $email)->exists();
+        $adminExists = Admin::where('email', $email)->exists();
+        if ($staffExists || $adminExists) {
+            return ApiResponse::error(
+                'This email is already linked to a non-client account.',
+                409,
+                'EMAIL_ALREADY_USED_BY_STAFF_OR_ADMIN'
+            );
+        }
+
+        $client = Client::withTrashed()->where('email', $email)->first();
 
         if (! $client) {
             $client = Client::create([
@@ -195,6 +226,16 @@ class AuthController extends Controller
                 'membership_point' => 0,
                 'membership_tier' => 'bronze',
             ]);
+        } else {
+            if ($client->trashed()) {
+                $client->restore();
+            }
+
+            $client->fill([
+                'client_name' => $client->client_name ?: $name,
+                'status' => 'active',
+            ]);
+            $client->save();
         }
 
         $tokenName = $client->email . '-' . now()->timestamp;

@@ -33,9 +33,9 @@ class Staff extends Authenticatable
         return $this->hasMany(ClientStaffReference::class, 'staff_id', 'staff_id');
     }
 
-    public function appointments()
+    public function appointmentDetails()
     {
-        return $this->hasMany(Appointment::class, 'staff', 'staff_id', 'appointment_id');
+        return $this->hasMany(AppointmentDetail::class, 'staff_id', 'staff_id');
     }
 
     public function staffSchedules()

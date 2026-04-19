@@ -6,21 +6,21 @@ use Illuminate\Database\Eloquent\Model;
 
 class ClientProductReference extends Model
 {
-    protected $table = 'client_product_reference';
-    protected $primaryKey = 'client_product_reference_id';
+    protected $table = 'client_product_preferences';
+    protected $primaryKey = 'preference_id';
     public $timestamps = true;
     protected $fillable = [
         'client_id',
-        'product_id',
+        'allergy_id',
     ];
 
     public function client()
     {
-        return $this->belongsTo(Client::class, 'client_product_reference', 'client_id', 'client_id');
+        return $this->belongsTo(Client::class, 'client_id', 'client_id');
     }
 
-    public function product()
+    public function allergy()
     {
-        return $this->belongsTo(Product::class, 'client_product_reference', 'product_id', 'product_id');
+        return $this->belongsTo(Allergy::class, 'allergy_id', 'allergy_id');
     }
 }

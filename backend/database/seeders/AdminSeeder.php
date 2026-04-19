@@ -13,18 +13,22 @@ class AdminSeeder extends Seeder
      */
     public function run(): void
     {
-        Admin::create([
-            'admin_name' => 'Admin',
-            'email' => 'admin@zenstyle.com',
-            'password' => Hash::make('Admin@12345'),
-            'status' => 'active',
-        ]);
+        Admin::firstOrCreate(
+            ['email' => 'admin@zenstyle.com'],
+            [
+                'admin_name' => 'Admin',
+                'password' => Hash::make('Admin@12345'),
+                'status' => 'active',
+            ]
+        );
 
-        Admin::create([
-            'admin_name' => 'Manager',
-            'email' => 'manager@zenstyle.com',
-            'password' => Hash::make('Manager@12345'),
-            'status' => 'active',
-        ]);
+        Admin::firstOrCreate(
+            ['email' => 'manager@zenstyle.com'],
+            [
+                'admin_name' => 'Manager',
+                'password' => Hash::make('Manager@12345'),
+                'status' => 'active',
+            ]
+        );
     }
 }

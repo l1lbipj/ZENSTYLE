@@ -1,3 +1,6 @@
+import { useNavigate } from 'react-router-dom'
+import { useAuth } from '../../context/useAuth'
+
 function IconCheck() {
   return (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden>
@@ -7,6 +10,26 @@ function IconCheck() {
 }
 
 export default function BookingWidget() {
+  const navigate = useNavigate()
+  const { user } = useAuth()
+
+  const handleCheck = () => {
+    if (!user) {
+      navigate('/login')
+      return
+    }
+    // For now, send clients to the booking flow; other roles to their dashboard.
+    if (user.role === 'client') {
+      navigate('/client/book')
+      return
+    }
+    if (user.role === 'admin') {
+      navigate('/admin')
+      return
+    }
+    navigate('/staff')
+  }
+
   return (
     <div className="zs-booking" id="booking">
       <div className="zs-booking__fields">
@@ -35,7 +58,7 @@ export default function BookingWidget() {
           <input className="zs-booking__control" type="date" />
         </label>
       </div>
-      <button type="button" className="zs-btn zs-btn--primary zs-booking__cta">
+      <button type="button" className="zs-btn zs-btn--primary zs-booking__cta" onClick={handleCheck}>
         <IconCheck />
         Check Availability
       </button>

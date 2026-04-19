@@ -12,11 +12,20 @@ use Illuminate\Support\Facades\Hash;
 
 class ClientController extends Controller
 {
+    private function abilities(Request $request): array
+    {
+        return $request->user()?->currentAccessToken()?->abilities ?? [];
+    }
+
     public function index(Request $request)
     {
         // Only admin can view all clients
-        $abilities = $request->user()->currentAccessToken()->abilities ?? [];
-        if (!$request->user() || !in_array('admin', $abilities)) {
+        if (! $request->user()) {
+            return ApiResponse::error('Unauthenticated.', 401, 'UNAUTHENTICATED');
+        }
+
+        $abilities = $this->abilities($request);
+        if (! in_array('admin', $abilities, true)) {
             return ApiResponse::error('Access denied.', 403, 'FORBIDDEN');
         }
 
@@ -37,8 +46,12 @@ class ClientController extends Controller
 
     public function show(Request $request, string $id)
     {
-        $abilities = $request->user()->currentAccessToken()->abilities ?? [];
-        $isAdmin = in_array('admin', $abilities);
+        if (! $request->user()) {
+            return ApiResponse::error('Unauthenticated.', 401, 'UNAUTHENTICATED');
+        }
+
+        $abilities = $this->abilities($request);
+        $isAdmin = in_array('admin', $abilities, true);
 
         // If not admin, only allow viewing their own record
         if (!$isAdmin && (int) $id !== (int) $request->user()->getKey()) {
@@ -61,8 +74,12 @@ class ClientController extends Controller
     public function store(StoreClientRequest $request)
     {
         // Only admin can create clients
-        $abilities = $request->user()->currentAccessToken()->abilities ?? [];
-        if (!$request->user() || !in_array('admin', $abilities)) {
+        if (! $request->user()) {
+            return ApiResponse::error('Unauthenticated.', 401, 'UNAUTHENTICATED');
+        }
+
+        $abilities = $this->abilities($request);
+        if (! in_array('admin', $abilities, true)) {
             return ApiResponse::error('Access denied.', 403, 'FORBIDDEN');
         }
 
@@ -83,8 +100,12 @@ class ClientController extends Controller
 
     public function update(UpdateClientRequest $request, string $id)
     {
-        $abilities = $request->user()->currentAccessToken()->abilities ?? [];
-        $isAdmin = in_array('admin', $abilities);
+        if (! $request->user()) {
+            return ApiResponse::error('Unauthenticated.', 401, 'UNAUTHENTICATED');
+        }
+
+        $abilities = $this->abilities($request);
+        $isAdmin = in_array('admin', $abilities, true);
 
         // If not admin, only allow updating their own record
         if (!$isAdmin && (int) $id !== (int) $request->user()->getKey()) {
@@ -116,8 +137,12 @@ class ClientController extends Controller
 
     public function destroy(Request $request, string $id)
     {
-        $abilities = $request->user()->currentAccessToken()->abilities ?? [];
-        $isAdmin = in_array('admin', $abilities);
+        if (! $request->user()) {
+            return ApiResponse::error('Unauthenticated.', 401, 'UNAUTHENTICATED');
+        }
+
+        $abilities = $this->abilities($request);
+        $isAdmin = in_array('admin', $abilities, true);
 
         // If not admin, only allow deleting their own account
         if (!$isAdmin && (int) $id !== (int) $request->user()->getKey()) {

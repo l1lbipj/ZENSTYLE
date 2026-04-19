@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class ClientAllergy extends Model
 {
-    protected $table = 'client_allergy';
+    protected $table = 'client_allergies';
     protected $primaryKey = 'client_allergy_id';
     public $timestamps = true;
     protected $fillable = [
@@ -16,12 +16,12 @@ class ClientAllergy extends Model
     
     public function client()
     {
-        return $this->belongsTo(Client::class, 'client_allergy', 'client_id', 'client_id');
+        return $this->belongsTo(Client::class, 'client_id', 'client_id');
     }
 
     public function allergy()
     {
-        return $this->belongsTo(Allergy::class, 'client_allergy', 'allergy_id', 'allergy_id');
+        return $this->belongsTo(Allergy::class, 'allergy_id', 'allergy_id');
     }
 
 }

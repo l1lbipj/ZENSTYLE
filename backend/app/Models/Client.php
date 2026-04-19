@@ -11,7 +11,7 @@ class Client extends Authenticatable
 {
     use HasApiTokens, HasFactory, SoftDeletes;
 
-    protected $table = 'client';
+    protected $table = 'clients';
     protected $primaryKey = 'client_id';
     public $timestamps = true;
     protected $fillable = [
@@ -31,16 +31,33 @@ class Client extends Authenticatable
 
     public function appointments()
     {
-        return $this->hasMany(Appointment::class, 'client', 'client_id', 'appointment_id');
+        return $this->hasMany(Appointment::class, 'client_id', 'client_id');
     }
 
     public function clientAllergies()
     {
-        return $this->hasMany(ClientAllergy::class, 'client_allergy', 'client_id', 'client_allergy_id');
+        return $this->hasMany(ClientAllergy::class, 'client_id', 'client_id');
+    }
+
+    public function clientProductPreferences()
+    {
+        return $this->hasMany(ClientProductReference::class, 'client_id', 'client_id');
+    }
+
+    public function clientStaffPreferences()
+    {
+        return $this->hasMany(ClientStaffReference::class, 'client_id', 'client_id');
     }
 
     public function feedbacks()
     {
-        return $this->hasMany(Feedback::class, 'client_id', 'client_id');
+        return $this->hasManyThrough(
+            Feedback::class,
+            Appointment::class,
+            'client_id',
+            'appointment_id',
+            'client_id',
+            'appointment_id'
+        );
     }
 }

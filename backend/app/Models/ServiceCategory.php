@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class ServiceCategory extends Model
 {
-    protected $table = 'service_category';
+    protected $table = 'service_categories';
     protected $primaryKey = 'category_id';
     public $timestamps = true;
     protected $fillable = [

@@ -1,4 +1,4 @@
-function IconPin() {
+﻿function IconPin() {
   return (
     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden>
       <path
@@ -46,7 +46,7 @@ export default function ContactSection() {
               <span className="zs-contact__icon">
                 <IconPin />
               </span>
-              <span>123 Serenity Lane, District 1, Ho Chi Minh City</span>
+              <span>1 Ly Tu Trong, An Phu Ward, Can Tho City</span>
             </li>
             <li>
               <span className="zs-contact__icon">
@@ -58,7 +58,7 @@ export default function ContactSection() {
               <span className="zs-contact__icon">
                 <IconClock />
               </span>
-              <span>Mon–Sat 9:00–20:00 · Sun 10:00–18:00</span>
+              <span>Mon-Sat 9:00-20:00 · Sun 10:00-18:00</span>
             </li>
           </ul>
         </div>
@@ -68,10 +68,12 @@ export default function ContactSection() {
             className="zs-contact__map"
             loading="lazy"
             referrerPolicy="no-referrer-when-downgrade"
-            src="https://www.openstreetmap.org/export/embed.html?bbox=106.6942%2C10.7626%2C106.7042%2C10.7726&amp;layer=mapnik&amp;marker=10.7676%2C106.6992"
+            src="https://www.openstreetmap.org/export/embed.html?bbox=105.7550%2C10.0110%2C105.7700%2C10.0210&layer=mapnik&marker=10.0160%2C105.7625"
           />
         </div>
       </div>
     </section>
   )
 }
+
+

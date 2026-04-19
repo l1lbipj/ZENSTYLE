@@ -6,18 +6,17 @@ use Illuminate\Database\Eloquent\Model;
 
 class InventoryLog extends Model
 {
-    protected $table = 'inventory_log';
+    protected $table = 'inventory_logs';
     protected $primaryKey = 'log_id';
     public $timestamps = true;
     protected $fillable = [
         'product_id',
         'change_amount',
-        'change_type',
-        'notes',
+        'reason',
     ];
 
     public function product()
     {
-        return $this->belongsTo(Product::class, 'inventory_log', 'product_id', 'product_id');
+        return $this->belongsTo(Product::class, 'product_id', 'product_id');
     }
 }

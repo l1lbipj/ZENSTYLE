@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class PurchaseOrder extends Model
 {
-    protected $table = 'purchase_order';
+    protected $table = 'purchase_orders';
     protected $primaryKey = 'order_id';
     public $timestamps = true;
     protected $fillable = [
@@ -18,11 +18,11 @@ class PurchaseOrder extends Model
 
     public function supplier()
     {
-        return $this->belongsTo(Supplier::class, 'purchase_order', 'supplier_id', 'supplier_id');
+        return $this->belongsTo(Supplier::class, 'supplier_id', 'supplier_id');
     }
 
     public function orderDetails()
     {
-        return $this->hasMany(OrderDetail::class, 'order_detail', 'order_id', 'order_id');
+        return $this->hasMany(OrderDetail::class, 'order_id', 'order_id');
     }
 }

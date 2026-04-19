@@ -5,25 +5,19 @@ namespace App\Http\Requests\Api;
 use App\Http\Responses\ApiResponse;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Http\Exceptions\HttpResponseException;
-use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Password;
 
 class UpdateStaffRequest extends FormRequest
 {
-    /**
-     * Determine if the user is authorized to make this request.
-     */
     public function authorize(): bool
     {
         $id = (int) $this->route('id');
-        return (int) $this->user()->getKey() === $id; // Chỉ cho phép update chính mình
+        $abilities = $this->user()?->currentAccessToken()?->abilities ?? [];
+        $isAdmin = in_array('admin', $abilities, true);
+
+        return $isAdmin || (int) $this->user()?->getKey() === $id;
     }
 
-    /**
-     * Get the validation rules that apply to the request.
-     *
-     * @return array<string, mixed>
-     */
     public function rules(): array
     {
         $id = $this->route('id');

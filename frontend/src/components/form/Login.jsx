@@ -42,6 +42,8 @@ const Login = () => {
         user_type: profileUserType,
         user: profileUser,
       });
+
+      return profileUserType || 'client';
     } catch (profileError) {
       clearLocalAuth();
       throw profileError;
@@ -56,9 +58,15 @@ const Login = () => {
 
     try {
       setSubmitting(true);
-      await authenticateAndHydrateUser(() => authApi.login(payload));
+      const userType = await authenticateAndHydrateUser(() => authApi.login(payload));
       message.success('Login successful!');
-      navigate('/');
+      if (userType === 'admin') {
+        navigate('/admin');
+      } else if (userType === 'staff') {
+        navigate('/staff');
+      } else {
+        navigate('/client');
+      }
     } catch (error) {
       const errorMessage = getApiErrorMessage(error);
       message.error(errorMessage);
@@ -86,9 +94,15 @@ const Login = () => {
         callback: async (googleResponse) => {
           try {
             setGoogleLoading(true);
-            await authenticateAndHydrateUser(() => authApi.googleLogin({ credential: googleResponse.credential }));
+            const userType = await authenticateAndHydrateUser(() => authApi.googleLogin({ credential: googleResponse.credential }));
             message.success('Google login successful!');
-            navigate('/');
+            if (userType === 'admin') {
+              navigate('/admin');
+            } else if (userType === 'staff') {
+              navigate('/staff');
+            } else {
+              navigate('/client');
+            }
           } catch (error) {
             message.error(getApiErrorMessage(error));
           } finally {
@@ -127,7 +141,7 @@ const Login = () => {
     document.head.appendChild(script);
 
     return () => script.removeEventListener('load', initializeGoogleSignIn);
-  }, [googleClientId]);
+  }, [googleClientId, navigate]);
 
   return (
     <div

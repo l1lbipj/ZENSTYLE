@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class Appointment extends Model
 {
-    protected $table = 'appointment';
+    protected $table = 'appointments';
     protected $primaryKey = 'appointment_id';
     public $timestamps = true;
     protected $fillable = [
@@ -22,11 +22,16 @@ class Appointment extends Model
 
     public function client()
     {
-        return $this->belongsTo(Client::class, 'appointment', 'client_id', 'client_id');
+        return $this->belongsTo(Client::class, 'client_id', 'client_id');
     }
 
     public function appointmentDetails()
     {
-        return $this->hasMany(AppointmentDetail::class, 'appointment', 'appointment_detail_id', 'appointment_id');
+        return $this->hasMany(AppointmentDetail::class, 'appointment_id', 'appointment_id');
+    }
+
+    public function feedback()
+    {
+        return $this->hasOne(Feedback::class, 'appointment_id', 'appointment_id');
     }
 }

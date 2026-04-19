@@ -14,8 +14,10 @@ class UpdateClientRequest extends FormRequest
     public function authorize(): bool
     {
         $id = (int) $this->route('id');
+        $abilities = $this->user()?->currentAccessToken()?->abilities ?? [];
+        $isAdmin = in_array('admin', $abilities, true);
 
-        return (int) $this->user()->getKey() === $id;
+        return $isAdmin || (int) $this->user()?->getKey() === $id;
     }
 
     /**

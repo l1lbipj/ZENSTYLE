@@ -6,18 +6,26 @@ use Illuminate\Database\Eloquent\Model;
 
 class StaffSchedule extends Model
 {
-    protected $table = 'staff_schedule';
-    protected $primaryKey = 'staff_schedule_id';
+    protected $table = 'staff_schedules';
+    protected $primaryKey = 'schedule_id';
     public $timestamps = true;
     protected $fillable = [
         'staff_id',
-        'day_of_week',
-        'start_time',
-        'end_time',
+        'date',
+        'check_in',
+        'check_out',
+        'actual_check_in',
+        'actual_check_out',
+        'shift_id',
     ];
 
     public function staff()
     {
-        return $this->belongsTo(Staff::class, 'staff_schedule', 'staff_id', 'staff_id');
+        return $this->belongsTo(Staff::class, 'staff_id', 'staff_id');
+    }
+
+    public function shift()
+    {
+        return $this->belongsTo(WorkShift::class, 'shift_id', 'shift_id');
     }
 }

@@ -1,0 +1,249 @@
+import Card from '../components/ui/Card'
+import Input from '../components/ui/Input'
+import Button from '../components/ui/Button'
+import PageHeader from '../components/ui/PageHeader'
+import Section from '../components/ui/Section'
+import { useEffect, useMemo, useState } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
+import { useAuth } from '../context/useAuth'
+import { getRoleRedirectPath } from '../routes/roleRedirect'
+import businessApi from '../Api/businessApi'
+import { getAccessToken, setAuth } from '../utils/auth'
+
+export default function UserProfilePage() {
+  const { user, logout } = useAuth()
+  const navigate = useNavigate()
+  const [activeTab, setActiveTab] = useState('profile')
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+  const [success, setSuccess] = useState('')
+
+  const [profile, setProfile] = useState(null)
+  const [name, setName] = useState('')
+  const [password, setPassword] = useState('')
+  const [passwordConfirmation, setPasswordConfirmation] = useState('')
+
+  const displayName = useMemo(() => {
+    const raw = profile?.client_name ?? profile?.staff_name ?? profile?.admin_name ?? profile?.name
+    return typeof raw === 'string' && raw.trim() ? raw.trim() : user?.name || ''
+  }, [profile, user?.name])
+
+  const displayEmail = useMemo(() => {
+    const raw = profile?.email
+    return typeof raw === 'string' && raw.trim() ? raw.trim() : user?.email || ''
+  }, [profile, user?.email])
+
+  const avatarUrl = useMemo(() => {
+    const raw = profile?.avatar_url ?? profile?.avatar ?? null
+    return typeof raw === 'string' && raw.trim() ? raw.trim() : null
+  }, [profile])
+
+  const refresh = async () => {
+    setError('')
+    setSuccess('')
+    setLoading(true)
+    try {
+      const res = await businessApi.myProfile()
+      const payload = res?.data?.data || {}
+      const nextUser = payload.user || null
+      setProfile(nextUser)
+      setName(
+        (nextUser?.client_name ?? nextUser?.staff_name ?? nextUser?.admin_name ?? nextUser?.name ?? '').toString(),
+      )
+
+      // Keep AuthContext (stored payload) in sync for navbar name.
+      const token = getAccessToken()
+      if (token && nextUser) {
+        const role = payload.role || user?.role || 'client'
+        setAuth({
+          access_token: token,
+          token_type: 'Bearer',
+          user_type: role,
+          user: nextUser,
+        })
+      }
+    } catch (err) {
+      setError(err?.response?.data?.message || 'Unable to load profile.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    refresh()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  const validate = () => {
+    const trimmedName = name.trim()
+    if (!trimmedName) return 'Name is required.'
+
+    if (password) {
+      if (password.length < 8) return 'Password must be at least 8 characters.'
+      if (password !== passwordConfirmation) return 'Password confirmation does not match.'
+    }
+
+    return ''
+  }
+
+  const handleSubmit = async (event) => {
+    event.preventDefault()
+    setError('')
+    setSuccess('')
+
+    const validationError = validate()
+    if (validationError) {
+      setError(validationError)
+      return
+    }
+
+    const payload = {
+      name: name.trim(),
+    }
+
+    if (password) {
+      payload.password = password
+      payload.password_confirmation = passwordConfirmation
+    }
+
+    try {
+      await businessApi.updateMyProfile(payload)
+      setSuccess('Profile updated successfully.')
+      setPassword('')
+      setPasswordConfirmation('')
+      await refresh()
+    } catch (err) {
+      setError(err?.response?.data?.message || 'Failed to update profile.')
+    }
+  }
+
+  const handleLogout = async () => {
+    setError('')
+    setSuccess('')
+    await logout()
+    navigate('/', { replace: true })
+  }
+
+  return (
+    <div className="zs-profile">
+      <PageHeader
+        title="Personal profile"
+        subtitle="Manage your personal information, security, and active sessions."
+        action={
+          <Link className="zs-btn zs-btn--ghost zs-btn--sm" to={getRoleRedirectPath(user?.role)}>
+            Back to dashboard
+          </Link>
+        }
+      />
+
+      {loading ? (
+        <div className="zs-page-state" role="status" aria-busy="true">
+          Loading…
+        </div>
+      ) : null}
+      {!loading && error ? <div className="zs-alert zs-alert--error">{error}</div> : null}
+      {!loading && success ? <div className="zs-alert zs-alert--success">{success}</div> : null}
+
+      <div className="zs-profile__layout">
+        <div className="zs-profile__card">
+          <div className="zs-profile__identity">
+            <div className="zs-profile__avatar">
+              {avatarUrl ? (
+                <img src={avatarUrl} alt="" />
+              ) : (
+                <span>{displayName?.charAt(0)?.toUpperCase() || 'Z'}</span>
+              )}
+            </div>
+            <div>
+              <h3>{displayName || 'ZenStyle User'}</h3>
+              <p>{displayEmail || 'user@zenstyle.com'}</p>
+              <span className="zs-profile__role">{user?.role || 'client'}</span>
+            </div>
+          </div>
+
+          <div className="zs-profile__actions">
+            <Button variant="ghost" size="md" onClick={handleLogout}>
+              Logout
+            </Button>
+          </div>
+        </div>
+
+        <div className="zs-profile__content">
+          <div className="zs-profile__tabs">
+            <button
+              type="button"
+              className={`zs-tab ${activeTab === 'profile' ? 'is-active' : ''}`}
+              onClick={() => setActiveTab('profile')}
+            >
+              Profile
+            </button>
+            <button
+              type="button"
+              className={`zs-tab ${activeTab === 'security' ? 'is-active' : ''}`}
+              onClick={() => setActiveTab('security')}
+            >
+              Security
+            </button>
+            <button
+              type="button"
+              className={`zs-tab ${activeTab === 'activity' ? 'is-active' : ''}`}
+              onClick={() => setActiveTab('activity')}
+            >
+              Activity
+            </button>
+          </div>
+
+          {activeTab === 'profile' && (
+            <Section title="Account information" description="Keep your contact information up to date.">
+              <form className="zs-form" onSubmit={handleSubmit}>
+                <div className="zs-profile__grid">
+                  <Input label="Full name" value={name} onChange={(e) => setName(e.target.value)} />
+                  <Input label="Email" type="email" value={displayEmail} disabled />
+                </div>
+                <div className="zs-profile__form-actions">
+                  <Button type="submit">Save changes</Button>
+                  <Button variant="ghost" type="button">
+                    Cancel
+                  </Button>
+                </div>
+              </form>
+            </Section>
+          )}
+
+          {activeTab === 'security' && (
+            <Section title="Security" description="Control your account access and sessions.">
+              <form className="zs-form" onSubmit={handleSubmit}>
+                <div className="zs-profile__grid">
+                  <Input
+                    label="New password"
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                  />
+                  <Input
+                    label="Confirm new password"
+                    type="password"
+                    value={passwordConfirmation}
+                    onChange={(e) => setPasswordConfirmation(e.target.value)}
+                  />
+                </div>
+                <div className="zs-profile__form-actions">
+                  <Button type="submit">Update password</Button>
+                  <Button variant="ghost" type="button">
+                    Cancel
+                  </Button>
+                </div>
+              </form>
+            </Section>
+          )}
+
+          {activeTab === 'activity' && (
+            <Section title="Recent activity" description="Coming soon.">
+              <Card title="Activity" description="We’ll show recent logins and changes here." />
+            </Section>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}

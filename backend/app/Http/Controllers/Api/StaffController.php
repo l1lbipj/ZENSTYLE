@@ -12,31 +12,55 @@ use Illuminate\Support\Facades\Hash;
 
 class StaffController extends Controller
 {
+    private function abilities(Request $request): array
+    {
+        return $request->user()?->currentAccessToken()?->abilities ?? [];
+    }
+
     public function index(Request $request){
-        // Only admin can view all staff
-        $abilities = $request->user()->currentAccessToken()->abilities ?? [];
-        if (!$request->user() || !in_array('admin', $abilities)) {
-            return ApiResponse::error('Access denied.', 403, 'FORBIDDEN');
+        if (! $request->user()) {
+            return ApiResponse::error('Unauthenticated.', 401, 'UNAUTHENTICATED');
         }
 
         $validated = $request->validate([
             'per_page' => 'nullable|integer|min:1|max:100',
             'page' => 'nullable|integer|min:1',
+            'search' => 'nullable|string|max:100',
+            'status' => 'nullable|in:active,inactive',
         ]);
 
-        $perPage = $validated['per_page'] ?? 10;
+        $perPage = (int) ($validated['per_page'] ?? 10);
+        $abilities = $this->abilities($request);
+        $isAdmin = in_array('admin', $abilities, true);
 
-        $staffs = Staff::paginate($perPage);
+        $query = Staff::query()->orderByDesc('staff_id');
+        if (! $isAdmin) {
+            // Client booking page needs staff options; expose only active staff with safe fields.
+            $query->select(['staff_id', 'staff_name', 'specialization', 'status']);
+            $query->where('status', 'active');
+        } else {
+            if (! empty($validated['status'])) {
+                $query->where('status', $validated['status']);
+            }
+        }
+
+        if (! empty($validated['search'])) {
+            $query->where('staff_name', 'like', '%'.$validated['search'].'%');
+        }
 
         return ApiResponse::success(
-            $staffs,
+            $query->paginate($perPage),
             'Staffs retrieved',
         );
     }
 
     public function show(Request $request, string $id){
-        $abilities = $request->user()->currentAccessToken()->abilities ?? [];
-        $isAdmin = in_array('admin', $abilities);
+        if (! $request->user()) {
+            return ApiResponse::error('Unauthenticated.', 401, 'UNAUTHENTICATED');
+        }
+
+        $abilities = $this->abilities($request);
+        $isAdmin = in_array('admin', $abilities, true);
 
         // If not admin, only allow viewing their own record
         if (!$isAdmin && (int) $id !== (int) $request->user()->getKey()){
@@ -56,8 +80,12 @@ class StaffController extends Controller
 
     public function store(StoreStaffRequest $request){
         // Only admin can create staff
-        $abilities = $request->user()->currentAccessToken()->abilities ?? [];
-        if (!$request->user() || !in_array('admin', $abilities)) {
+        if (! $request->user()) {
+            return ApiResponse::error('Unauthenticated.', 401, 'UNAUTHENTICATED');
+        }
+
+        $abilities = $this->abilities($request);
+        if (! in_array('admin', $abilities, true)) {
             return ApiResponse::error('Access denied.', 403, 'FORBIDDEN');
         }
 
@@ -76,8 +104,12 @@ class StaffController extends Controller
     }
 
     public function update(UpdateStaffRequest $request, string $id){
-        $abilities = $request->user()->currentAccessToken()->abilities ?? [];
-        $isAdmin = in_array('admin', $abilities);
+        if (! $request->user()) {
+            return ApiResponse::error('Unauthenticated.', 401, 'UNAUTHENTICATED');
+        }
+
+        $abilities = $this->abilities($request);
+        $isAdmin = in_array('admin', $abilities, true);
 
         // If not admin, only allow updating their own record
         if (!$isAdmin && (int) $id !== (int) $request->user()->getKey()) {
@@ -106,8 +138,12 @@ class StaffController extends Controller
     }
     public function destroy(Request $request, string $id)
     {
-        $abilities = $request->user()->currentAccessToken()->abilities ?? [];
-        $isAdmin = in_array('admin', $abilities);
+        if (! $request->user()) {
+            return ApiResponse::error('Unauthenticated.', 401, 'UNAUTHENTICATED');
+        }
+
+        $abilities = $this->abilities($request);
+        $isAdmin = in_array('admin', $abilities, true);
 
         // If not admin, only allow deleting their own account
         if (!$isAdmin && (int) $id !== (int) $request->user()->getKey()) {

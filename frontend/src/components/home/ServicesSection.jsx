@@ -11,18 +11,19 @@ export default function ServicesSection() {
           <h2 className="zs-section__title">Where efficiency meets exceptional care</h2>
           <p className="zs-section__intro">
             ZenStyle brings scheduling, specialists, and service quality together so clients move smoothly from booking
-            to checkout — less waiting, more time for craft. Explore our core experiences below.
+            to checkout - less waiting, more time for craft. Explore our core experiences below.
           </p>
         </header>
 
         <div className="zs-services-grid">
-          <ServiceCard image={homeHair} title="Hair" variant="half" />
-          <ServiceCard image={registerWarm} title="Skins" variant="half" />
+          <ServiceCard image={homeHair} title="Hair" variant="half" to="/services/signature-haircut" />
+          <ServiceCard image={registerWarm} title="Skin" variant="half" to="/services/restorative-facial" />
           <ServiceCard
             image={loginBanner}
             title="The Ritual of Beauty"
-            subtitle="A full-room spa journey — steam, touch, and tailored botanicals."
+            subtitle="A full-room spa journey - steam, touch, and tailored botanicals."
             variant="wide"
+            to="/services/spa-ritual"
           />
         </div>
       </div>

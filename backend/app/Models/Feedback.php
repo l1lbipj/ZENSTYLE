@@ -13,10 +13,16 @@ class Feedback extends Model
         'appointment_id',
         'rating',
         'notes',
+        'manager_reply',
+        'replied_at',
+    ];
+
+    protected $casts = [
+        'replied_at' => 'datetime',
     ];
 
     public function appointment()
     {
-        return $this->belongsTo(Appointment::class, 'feedback', 'appointment_id', 'appointment_id');
+        return $this->belongsTo(Appointment::class, 'appointment_id', 'appointment_id');
     }
 }

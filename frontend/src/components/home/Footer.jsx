@@ -7,7 +7,7 @@ export default function Footer() {
         <div className="zs-footer__brand-block">
           <img src={logo} alt="" className="zs-footer__logo" width={160} height={64} />
           <p className="zs-footer__tagline">
-            ZENSTYLE SALON — modern cuts, restorative skin rituals, and calm service in the heart of the city.
+            ZENSTYLE SALON - modern cuts, restorative skin rituals, and calm service in the heart of the city.
           </p>
         </div>
         <div>
@@ -19,7 +19,7 @@ export default function Footer() {
               </a>
             </li>
             <li>
-              <a href="#contact">Contact</a>
+              <a href="/#contact">Contact</a>
             </li>
           </ul>
         </div>
@@ -39,7 +39,7 @@ export default function Footer() {
           </ul>
         </div>
       </div>
-      <p className="zs-footer__copy">© {new Date().getFullYear()} ZenStyle Salon. All rights reserved.</p>
+      <p className="zs-footer__copy">(c) {new Date().getFullYear()} ZenStyle Salon. All rights reserved.</p>
     </footer>
   )
 }

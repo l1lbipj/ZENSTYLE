@@ -6,17 +6,15 @@ use Illuminate\Database\Eloquent\Model;
 
 class WorkShift extends Model
 {
-    protected $table = 'work_shift';
+    protected $table = 'work_shifts';
     protected $primaryKey = 'shift_id';
     public $timestamps = true;
     protected $fillable = [
         'shift_name',
-        'start_time',
-        'end_time',
     ];
 
-    public function staffSchedule()
+    public function staffSchedules()
     {
-        return $this->belongsTo(StaffSchedule::class, 'work_shift', 'shift_id', 'schedule_id');
+        return $this->hasMany(StaffSchedule::class, 'shift_id', 'shift_id');
     }
 }
