@@ -1,19 +1,40 @@
 import { Outlet } from 'react-router-dom'
 import AppShell from '../components/dashboard/AppShell'
 
-const navItems = [
-  { label: 'Dashboard', to: '/admin' },
-  { label: 'Staff', to: '/admin/staff' },
-  { label: 'Services', to: '/admin/services' },
-  { label: 'Promotions', to: '/admin/promotions' },
-  { label: 'Inventory', to: '/admin/inventory' },
-  { label: 'Suppliers', to: '/admin/suppliers' },
-  { label: 'Reports', to: '/admin/reports' },
+const navSections = [
+  {
+    title: 'Overview',
+    items: [
+      { label: 'Dashboard', to: '/admin', icon: 'home' },
+    ],
+  },
+  {
+    title: 'Management',
+    items: [
+      { label: 'Staff', to: '/admin/staff', icon: 'user' },
+      { label: 'Services', to: '/admin/services', icon: 'settings' },
+      { label: 'Promotions', to: '/admin/promotions', icon: 'gift' },
+      { label: 'Inventory', to: '/admin/inventory', icon: 'box' },
+      { label: 'Suppliers', to: '/admin/suppliers', icon: 'truck' },
+    ],
+  },
+  {
+    title: 'Reports',
+    items: [
+      { label: 'Reports', to: '/admin/reports', icon: 'chart' },
+    ],
+  },
 ]
 
 export default function AdminLayout() {
   return (
-    <AppShell title="Dashboard" badgeLabel="Admin" navItems={navItems}>
+    <AppShell
+      title="Admin Dashboard"
+      badgeLabel="Admin"
+      navSections={navSections}
+      welcome="Welcome to the admin area"
+      variant="admin"
+    >
       <Outlet />
     </AppShell>
   )

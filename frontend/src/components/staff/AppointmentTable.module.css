@@ -95,6 +95,84 @@
   text-transform: capitalize;
 }
 
+.rowActions {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-width: 280px;
+}
+
+.actionCell {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+}
+
+.actionLabel {
+  font-size: 12px;
+  color: #667085;
+  font-weight: 600;
+}
+
+.actionGroup {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.actionInput {
+  width: 100%;
+  min-width: 170px;
+  padding: 10px 12px;
+  border: 1px solid #d0d5dd;
+  border-radius: 12px;
+  font-size: 13px;
+  background: #f8fafc;
+}
+
+.actionButton {
+  padding: 8px 14px;
+  border-radius: 10px;
+  border: 1px solid transparent;
+  background: #f8fafc;
+  color: #0f172a;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.actionButton:hover {
+  background: #e2e8f0;
+  transform: translateY(-1px);
+}
+
+.actionButtonPrimary {
+  background: #0f172a;
+  color: #ffffff;
+  border-color: #0f172a;
+}
+
+.actionButtonPrimary:hover {
+  background: #111827;
+}
+
+.actionButtonDanger {
+  background: #fee2e2;
+  color: #991b1b;
+  border-color: #fca5a5;
+}
+
+.actionButtonDanger:hover {
+  background: #fca5a5;
+}
+
+.actionHint {
+  font-size: 13px;
+  color: #667085;
+}
+
 .pending {
   background: #fef0c7;
   color: #92400e;

@@ -30,6 +30,9 @@ export default function StaffTasksPage() {
   const [appointments, setAppointments] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [message, setMessage] = useState('')
+  const [messageTone, setMessageTone] = useState('success')
+  const [editValues, setEditValues] = useState({})
   const [page, setPage] = useState(1)
 
   const loadAppointments = async () => {
@@ -46,16 +49,17 @@ export default function StaffTasksPage() {
           if (!isServiceDetail(detail)) return
           details.push({
             id: detail?.detail_id,
+            appointmentId: appointment?.appointment_id,
             customerName: appointment?.client?.client_name || 'Customer',
             phone: appointment?.client?.phone || '-',
             serviceName: getServiceName(detail),
-            datetime: appointment?.appointment_date,
+            datetimeRaw: appointment?.appointment_date,
             status: mapStatus(appointment),
           })
         })
       })
 
-      details.sort((a, b) => new Date(b.datetime || 0) - new Date(a.datetime || 0))
+      details.sort((a, b) => new Date(b.datetimeRaw || 0) - new Date(a.datetimeRaw || 0))
       setAppointments(details)
     } catch (err) {
       setError(err?.response?.data?.message || 'Unable to load appointment history.')
@@ -67,6 +71,63 @@ export default function StaffTasksPage() {
   useEffect(() => {
     loadAppointments()
   }, [])
+
+  const handleMessage = (tone, text) => {
+    setMessageTone(tone)
+    setMessage(text)
+  }
+
+  const formatLocalDateTime = (value) => {
+    if (!value) return ''
+    const date = new Date(value)
+    const offset = date.getTimezoneOffset() * 60000
+    return new Date(date - offset).toISOString().slice(0, 16)
+  }
+
+  const handleComplete = async (detailId) => {
+    setLoading(true)
+    try {
+      await businessApi.completeTask(detailId)
+      handleMessage('success', 'Task marked as completed.')
+      await loadAppointments()
+    } catch (err) {
+      handleMessage('error', err?.response?.data?.message || 'Unable to complete task.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleReject = async (appointmentId) => {
+    setLoading(true)
+    try {
+      await businessApi.cancelAppointment(appointmentId)
+      handleMessage('success', 'Appointment rejected successfully.')
+      await loadAppointments()
+    } catch (err) {
+      handleMessage('error', err?.response?.data?.message || 'Unable to reject appointment.')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleReschedule = async (appointmentId) => {
+    const value = editValues[appointmentId]
+    if (!value) {
+      handleMessage('error', 'Please choose a new date and time.')
+      return
+    }
+
+    setLoading(true)
+    try {
+      await businessApi.rescheduleAppointment(appointmentId, { appointment_date: value })
+      handleMessage('success', 'Appointment updated successfully.')
+      await loadAppointments()
+    } catch (err) {
+      handleMessage('error', err?.response?.data?.message || 'Unable to update appointment.')
+    } finally {
+      setLoading(false)
+    }
+  }
 
   const visibleAppointments = useMemo(() => {
     if (filter === 'all') return appointments
@@ -92,6 +153,10 @@ export default function StaffTasksPage() {
           <p className={styles.subtitle}>Review services you handled with customer details.</p>
         </header>
 
+        {message ? (
+          <div className={`zs-feedback ${messageTone === 'error' ? 'zs-feedback--error' : 'zs-feedback--success'}`}>{message}</div>
+        ) : null}
+
         <AppointmentTable
           title="Service records"
           description="Sorted by latest appointment time."
@@ -107,13 +172,57 @@ export default function StaffTasksPage() {
           error={error}
           rows={pagedAppointments.map((item) => ({
             ...item,
-            datetime: formatDateTime(item.datetime),
+            datetime: formatDateTime(item.datetimeRaw),
           }))}
           page={page}
           totalPages={totalPages}
           totalItems={visibleAppointments.length}
           onPrevPage={() => setPage((prev) => Math.max(1, prev - 1))}
           onNextPage={() => setPage((prev) => Math.min(totalPages, prev + 1))}
+          actionRenderer={(item) => {
+            const canEdit = item.status !== 'cancelled'
+            const showComplete = item.status === 'pending'
+            const appointmentId = item.appointmentId
+            const value = editValues[appointmentId] ?? formatLocalDateTime(item.datetimeRaw)
+
+            return (
+              <div className={styles.rowActions}>
+                {showComplete ? (
+                  <div className={styles.actionGroup}>
+                    <button type="button" className={`${styles.actionButton} ${styles.actionButtonPrimary}`} onClick={() => handleComplete(item.id)}>
+                      Mark complete
+                    </button>
+                  </div>
+                ) : null}
+                {canEdit ? (
+                  <div className={styles.actionCell}>
+                    <label className={styles.actionLabel} htmlFor={`edit-${appointmentId}`}>
+                      Change date/time
+                    </label>
+                    <input
+                      id={`edit-${appointmentId}`}
+                      type="datetime-local"
+                      className={styles.actionInput}
+                      value={value}
+                      onChange={(event) =>
+                        setEditValues((prev) => ({ ...prev, [appointmentId]: event.target.value }))
+                      }
+                    />
+                    <div className={styles.actionGroup}>
+                      <button type="button" className={`${styles.actionButton} ${styles.actionButtonPrimary}`} onClick={() => handleReschedule(appointmentId)}>
+                        Update
+                      </button>
+                      <button type="button" className={`${styles.actionButton} ${styles.actionButtonDanger}`} onClick={() => handleReject(appointmentId)}>
+                        Reject
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <span className={styles.actionHint}>No actions available</span>
+                )}
+              </div>
+            )
+          }}
         />
       </div>
     </div>

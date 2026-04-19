@@ -20,6 +20,7 @@ export default function AppointmentTable({
   totalItems,
   onPrevPage,
   onNextPage,
+  actionRenderer,
 }) {
   return (
     <section className={styles.card}>
@@ -59,6 +60,7 @@ export default function AppointmentTable({
                   <th>Service</th>
                   <th>Date time</th>
                   <th>Status</th>
+                  {actionRenderer ? <th>Actions</th> : null}
                 </tr>
               </thead>
               <tbody>
@@ -71,6 +73,7 @@ export default function AppointmentTable({
                     <td>
                       <span className={badgeClass(item.status)}>{item.status}</span>
                     </td>
+                    {actionRenderer ? <td>{actionRenderer(item)}</td> : null}
                   </tr>
                 ))}
               </tbody>
