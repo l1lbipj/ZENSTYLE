@@ -61,6 +61,9 @@ class FeedbackController extends Controller
         if (! $appointment || (int) $appointment->client_id !== (int) $request->user()->getKey()) {
             return ApiResponse::error('You can only feedback your own appointment.', 403, 'FORBIDDEN');
         }
+        if ((string) $appointment->status !== 'inactive') {
+            return ApiResponse::error('You can only submit feedback after the appointment is completed.', 422, 'APPOINTMENT_NOT_COMPLETED');
+        }
 
         $feedback = Feedback::updateOrCreate(
             ['appointment_id' => $appointment->appointment_id],

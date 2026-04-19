@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Api;
 
 use App\Http\Responses\ApiResponse;
+use App\Support\ImageData;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Validation\Rules\Password;
@@ -42,7 +43,7 @@ class UpdateStaffRequest extends FormRequest
             ],
             'email' => [
                 'sometimes',
-                'email:rfc,dns',
+                'email:rfc',
                 'max:100',
                 function ($attribute, $value, $fail) use ($id) {
                     $existsInClient = \App\Models\Client::where('email', $value)->exists();
@@ -58,6 +59,7 @@ class UpdateStaffRequest extends FormRequest
                 'confirmed',
                 Password::min(8)->letters()->mixedCase()->numbers()->symbols()->uncompromised(),
             ],
+            'image_data' => ['sometimes', ...ImageData::rules()],
             'dob' => ['nullable', 'date', 'before:today', 'after:1900-01-01'],
             'status' => ['nullable', 'in:active,inactive'],
         ];

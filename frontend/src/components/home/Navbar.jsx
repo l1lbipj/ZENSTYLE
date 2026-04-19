@@ -51,7 +51,8 @@ export default function Navbar() {
   const { user, logout } = useAuth()
   const { totalQuantity } = useCart()
   const navigate = useNavigate()
-  const dashboardPath = user ? getRoleRedirectPath(user.role) : '/login'
+  const dashboardPath = user ? (user.role === 'client' ? '/client' : getRoleRedirectPath(user.role)) : '/login'
+  const profilePath = user ? (user.role === 'client' ? '/client/profile' : '/profile') : '/login'
   const cartLabel =
     totalQuantity > 0 ? `Shopping cart, ${totalQuantity} items` : 'Shopping cart, empty'
 
@@ -87,7 +88,7 @@ export default function Navbar() {
           </button>
           {user ? (
             <>
-              <Link to="/profile" className="zs-nav__icon-btn" aria-label="User profile">
+              <Link to={profilePath} className="zs-nav__icon-btn" aria-label="User profile">
                 <IconUser />
               </Link>
               <Link to={dashboardPath} className="zs-nav__user">

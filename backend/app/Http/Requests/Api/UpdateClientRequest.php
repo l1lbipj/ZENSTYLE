@@ -4,6 +4,7 @@ namespace App\Http\Requests\Api;
 
 use Illuminate\Contracts\Validation\ValidationRule;
 use App\Http\Responses\ApiResponse;
+use App\Support\ImageData;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Validation\Rule;
@@ -62,6 +63,7 @@ class UpdateClientRequest extends FormRequest
                 'confirmed',
                 Password::min(8)->letters()->mixedCase()->numbers()->symbols()->uncompromised(),
             ],
+            'image_data' => ['sometimes', ...ImageData::rules()],
             'dob' => ['nullable', 'date', 'before:today', 'after:1900-01-01'],
             'status' => ['nullable', 'in:active,inactive'],
             'membership_point' => ['nullable', 'integer', 'min:0', 'max:1000000'],

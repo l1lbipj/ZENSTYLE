@@ -8,6 +8,6 @@ export function getRoleRedirectPath(role) {
       return '/staff'
     case Roles.CLIENT:
     default:
-      return '/client'
+      return '/'
   }
 }

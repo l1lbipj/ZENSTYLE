@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Http\Responses\ApiResponse;
 use App\Models\Product;
+use App\Support\ImageData;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 
@@ -115,6 +116,7 @@ class ProductController extends Controller
             'category' => ['required', Rule::in(['hair', 'skin'])],
             'description' => ['nullable', 'string'],
             'image_url' => ['nullable', 'string', 'max:255'],
+            'image_data' => ImageData::rules(),
             'stock_quantity' => ['required', 'integer', 'min:1'],
             'reorder_level' => ['nullable', 'integer', 'min:0'],
             'unit_price' => ['required', 'numeric', 'gt:0'],
@@ -152,6 +154,7 @@ class ProductController extends Controller
             'category' => ['sometimes', Rule::in(['hair', 'skin'])],
             'description' => ['sometimes', 'nullable', 'string'],
             'image_url' => ['sometimes', 'nullable', 'string', 'max:255'],
+            'image_data' => ['sometimes', ...ImageData::rules()],
             'stock_quantity' => ['sometimes', 'integer', 'min:1'],
             'reorder_level' => ['sometimes', 'integer', 'min:0'],
             'unit_price' => ['sometimes', 'numeric', 'gt:0'],
@@ -185,4 +188,3 @@ class ProductController extends Controller
         return ApiResponse::success(null, 'Product deleted.');
     }
 }
-

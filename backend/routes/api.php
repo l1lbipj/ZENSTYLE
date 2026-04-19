@@ -54,6 +54,8 @@ Route::prefix('v1')->group(function () {
         Route::put('/appointments/{id}/reschedule', [AppointmentController::class, 'reschedule'])->whereNumber('id');
         Route::patch('/appointment-details/{id}/complete', [AppointmentController::class, 'completeDetail'])->whereNumber('id');
 
+        Route::get('/services', [ManagementController::class, 'services']);
+
         Route::get('/feedback', [FeedbackController::class, 'index']);
         Route::post('/feedback', [FeedbackController::class, 'store']);
         Route::patch('/feedback/{id}/reply', [FeedbackController::class, 'reply'])->whereNumber('id');

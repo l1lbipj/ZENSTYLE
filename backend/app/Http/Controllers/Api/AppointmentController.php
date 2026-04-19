@@ -17,6 +17,41 @@ use Illuminate\Validation\Rule;
 
 class AppointmentController extends Controller
 {
+    private function usesMixedItemSchema(): bool
+    {
+        return Schema::hasColumn('appointment_details', 'item_id');
+    }
+
+    private function usesLegacyItemTypeValues(): bool
+    {
+        try {
+            $column = DB::selectOne("SHOW COLUMNS FROM appointment_details LIKE 'item_type'");
+            $type = strtolower((string) ($column->Type ?? ''));
+
+            return str_contains($type, "enum('skin','hair')") || str_contains($type, 'enum(\'skin\',\'hair\')');
+        } catch (\Throwable) {
+            return false;
+        }
+    }
+
+    private function constrainServiceDetails($query, bool $usesMixedItemSchema, bool $usesLegacyItemTypeValues): void
+    {
+        if ($usesMixedItemSchema && ! $usesLegacyItemTypeValues) {
+            $query->where('item_type', 'service');
+
+            return;
+        }
+
+        $query->whereNotNull('service_id');
+    }
+
+    private function resolveLegacyServiceItemType(Service $service): string
+    {
+        $categoryName = strtolower((string) optional($service->category)->category_name);
+
+        return str_contains($categoryName, 'skin') ? 'skin' : 'hair';
+    }
+
     private function abilities(Request $request): array
     {
         return $request->user()?->currentAccessToken()?->abilities ?? [];
@@ -25,6 +60,8 @@ class AppointmentController extends Controller
     private function canAccessAppointment(Request $request, Appointment $appointment): bool
     {
         $abilities = $this->abilities($request);
+        $usesMixedItemSchema = $this->usesMixedItemSchema();
+        $usesLegacyItemTypeValues = $this->usesLegacyItemTypeValues();
 
         if (in_array('admin', $abilities, true)) {
             return true;
@@ -35,9 +72,12 @@ class AppointmentController extends Controller
         }
 
         if (in_array('staff', $abilities, true)) {
-            return AppointmentDetail::where('appointment_id', $appointment->appointment_id)
+            return AppointmentDetail::query()
+                ->where('appointment_id', $appointment->appointment_id)
                 ->where('staff_id', $request->user()->getKey())
-                ->where('item_type', 'service')
+                ->where(function ($query) use ($usesMixedItemSchema, $usesLegacyItemTypeValues) {
+                    $this->constrainServiceDetails($query, $usesMixedItemSchema, $usesLegacyItemTypeValues);
+                })
                 ->exists();
         }
 
@@ -46,16 +86,19 @@ class AppointmentController extends Controller
 
     public function index(Request $request)
     {
-        $detailItemRelations = Schema::hasColumn('appointment_details', 'item_id')
-            ? ['appointmentDetails.item']
-            : ['appointmentDetails.service', 'appointmentDetails.product'];
+        $usesMixedItemSchema = $this->usesMixedItemSchema();
+        $usesLegacyItemTypeValues = $this->usesLegacyItemTypeValues();
+        $detailRelations = ['appointmentDetails.service', 'appointmentDetails.product'];
+        if ($usesMixedItemSchema) {
+            $detailRelations[] = 'appointmentDetails.item';
+        }
 
         $query = Appointment::query()
             ->with(array_merge([
                 'client:client_id,client_name,email,phone',
                 'appointmentDetails.staff:staff_id,staff_name',
                 'feedback:feedback_id,appointment_id,rating,notes,manager_reply,replied_at',
-            ], $detailItemRelations))
+            ], $detailRelations))
             ->orderByDesc('appointment_date');
 
         $abilities = $this->abilities($request);
@@ -65,7 +108,7 @@ class AppointmentController extends Controller
             $staffId = $request->user()->getKey();
             $query->whereHas('appointmentDetails', function ($q) use ($staffId) {
                 $q->where('staff_id', $staffId);
-                $q->where('item_type', 'service');
+                $this->constrainServiceDetails($q, $this->usesMixedItemSchema(), $this->usesLegacyItemTypeValues());
             });
         } elseif (! in_array('admin', $abilities, true)) {
             return ApiResponse::error('Access denied.', 403, 'FORBIDDEN');
@@ -131,11 +174,13 @@ class AppointmentController extends Controller
             ? \Carbon\Carbon::parse($validated['appointment_date'])->startOfDay()
             : now()->startOfDay();
 
-        $usesMixedItemSchema = Schema::hasColumn('appointment_details', 'item_id');
+        $usesMixedItemSchema = $this->usesMixedItemSchema();
+        $usesLegacyItemTypeValues = $this->usesLegacyItemTypeValues();
 
-        $appointment = DB::transaction(function () use ($usesMixedItemSchema, $appointmentDate, $clientId, $hasServiceItem, $items, $productIds, $serviceIds, $validated) {
+        $appointment = DB::transaction(function () use ($usesLegacyItemTypeValues, $usesMixedItemSchema, $appointmentDate, $clientId, $hasServiceItem, $items, $productIds, $serviceIds, $validated) {
             $services = Service::query()
                 ->whereIn('service_id', array_values(array_unique($serviceIds)))
+                ->with('category:category_id,category_name')
                 ->get()
                 ->keyBy('service_id');
 
@@ -180,8 +225,11 @@ class AppointmentController extends Controller
                     if ($usesMixedItemSchema) {
                         $detailsToCreate[] = [
                             'staff_id' => $staffId,
-                            'item_type' => 'service',
+                            'item_type' => $usesLegacyItemTypeValues ? $this->resolveLegacyServiceItemType($service) : 'service',
                             'item_id' => $itemId,
+                            // Keep legacy references populated for databases that still have old CHECK constraints.
+                            'service_id' => $itemId,
+                            'product_id' => null,
                             'quantity' => $qty,
                             'price' => $lineTotal,
                             'start_time' => $startTime,
@@ -217,8 +265,11 @@ class AppointmentController extends Controller
                     if ($usesMixedItemSchema) {
                         $detailsToCreate[] = [
                             'staff_id' => null,
-                            'item_type' => 'product',
+                            'item_type' => $usesLegacyItemTypeValues ? 'hair' : 'product',
                             'item_id' => $itemId,
+                            // Keep legacy references populated for databases that still have old CHECK constraints.
+                            'service_id' => null,
+                            'product_id' => $itemId,
                             'quantity' => $qty,
                             'price' => $lineTotal,
                             'start_time' => null,
@@ -282,7 +333,7 @@ class AppointmentController extends Controller
             foreach ($detailsToCreate as $detail) {
                 // Only service-lines have staff/time.
                 if ($usesMixedItemSchema) {
-                    if (($detail['item_type'] ?? null) !== 'service') {
+                    if (empty($detail['service_id'])) {
                         continue;
                     }
                 } else {
@@ -328,7 +379,9 @@ class AppointmentController extends Controller
             return $appointment->load([
                 'client:client_id,client_name,email',
                 'appointmentDetails.staff:staff_id,staff_name',
-                ...($usesMixedItemSchema ? ['appointmentDetails.item'] : ['appointmentDetails.service', 'appointmentDetails.product']),
+                'appointmentDetails.service',
+                'appointmentDetails.product',
+                ...($usesMixedItemSchema ? ['appointmentDetails.item'] : []),
             ]);
         });
 
@@ -461,7 +514,7 @@ class AppointmentController extends Controller
         if (! $detail) {
             return ApiResponse::error('Task not found.', 404, 'NOT_FOUND');
         }
-        if ($detail->item_type !== 'service') {
+        if (empty($detail->service_id) && $detail->item_type !== 'service') {
             return ApiResponse::error('Only service tasks can be completed.', 422, 'INVALID_ITEM_TYPE');
         }
 
@@ -508,8 +561,10 @@ class AppointmentController extends Controller
 
         // New schema stores service lines with item_type = 'service'.
         // Old schema uses item_type = 'hair'/'skin', so we must NOT filter by item_type there.
-        if ($usesMixedItemSchema) {
+        if ($usesMixedItemSchema && ! $this->usesLegacyItemTypeValues()) {
             $query->where('appointment_details.item_type', 'service');
+        } else {
+            $query->whereNotNull('appointment_details.service_id');
         }
 
         if ($forUpdate) {

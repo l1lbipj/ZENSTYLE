@@ -4,11 +4,12 @@ import Button from '../components/ui/Button'
 import PageHeader from '../components/ui/PageHeader'
 import Section from '../components/ui/Section'
 import { useEffect, useMemo, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, Navigate, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/useAuth'
 import { getRoleRedirectPath } from '../routes/roleRedirect'
 import businessApi from '../Api/businessApi'
 import { getAccessToken, setAuth } from '../utils/auth'
+import { fileToDataUrl, getEntityImage } from '../utils/imageDataUrl'
 
 export default function UserProfilePage() {
   const { user, logout } = useAuth()
@@ -20,6 +21,9 @@ export default function UserProfilePage() {
 
   const [profile, setProfile] = useState(null)
   const [name, setName] = useState('')
+  const [phone, setPhone] = useState('')
+  const [dob, setDob] = useState('')
+  const [imageData, setImageData] = useState('')
   const [password, setPassword] = useState('')
   const [passwordConfirmation, setPasswordConfirmation] = useState('')
 
@@ -34,9 +38,12 @@ export default function UserProfilePage() {
   }, [profile, user?.email])
 
   const avatarUrl = useMemo(() => {
-    const raw = profile?.avatar_url ?? profile?.avatar ?? null
-    return typeof raw === 'string' && raw.trim() ? raw.trim() : null
-  }, [profile])
+    return getEntityImage({ ...profile, image_data: imageData || profile?.image_data }, null)
+  }, [imageData, profile])
+
+  if (user?.role === 'client') {
+    return <Navigate to="/client/profile" replace />
+  }
 
   const refresh = async () => {
     setError('')
@@ -50,6 +57,9 @@ export default function UserProfilePage() {
       setName(
         (nextUser?.client_name ?? nextUser?.staff_name ?? nextUser?.admin_name ?? nextUser?.name ?? '').toString(),
       )
+      setPhone((nextUser?.phone ?? '').toString())
+      setDob((nextUser?.dob ?? '').toString())
+      setImageData((nextUser?.image_data ?? '').toString())
 
       // Keep AuthContext (stored payload) in sync for navbar name.
       const token = getAccessToken()
@@ -66,6 +76,21 @@ export default function UserProfilePage() {
       setError(err?.response?.data?.message || 'Unable to load profile.')
     } finally {
       setLoading(false)
+    }
+  }
+
+  const handleImageChange = async (event) => {
+    const file = event.target.files?.[0]
+    if (!file) return
+    try {
+      const nextImage = await fileToDataUrl(file)
+      setImageData(nextImage)
+      setError('')
+      setSuccess('')
+    } catch (err) {
+      setError(err.message || 'Unable to read image.')
+    } finally {
+      event.target.value = ''
     }
   }
 
@@ -99,6 +124,9 @@ export default function UserProfilePage() {
 
     const payload = {
       name: name.trim(),
+      phone: phone.trim() || null,
+      dob: dob || null,
+      image_data: imageData || null,
     }
 
     if (password) {
@@ -199,7 +227,18 @@ export default function UserProfilePage() {
                 <div className="zs-profile__grid">
                   <Input label="Full name" value={name} onChange={(e) => setName(e.target.value)} />
                   <Input label="Email" type="email" value={displayEmail} disabled />
+                  <Input label="Phone" type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} />
+                  <Input label="Date of birth" type="date" value={dob} onChange={(e) => setDob(e.target.value)} />
                 </div>
+                <label className="zs-field">
+                  <span className="zs-field__label">Profile image</span>
+                  <input className="zs-input" type="file" accept="image/png,image/jpeg,image/jpg,image/webp,image/gif" onChange={handleImageChange} />
+                </label>
+                {imageData ? (
+                  <Button variant="ghost" type="button" onClick={() => setImageData('')}>
+                    Remove image
+                  </Button>
+                ) : null}
                 <div className="zs-profile__form-actions">
                   <Button type="submit">Save changes</Button>
                   <Button variant="ghost" type="button">

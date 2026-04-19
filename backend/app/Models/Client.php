@@ -19,6 +19,7 @@ class Client extends Authenticatable
         'phone',
         'email',
         'password',
+        'image_data',
         'dob',
         'status',
         'membership_point',

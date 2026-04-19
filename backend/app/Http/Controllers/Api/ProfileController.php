@@ -9,6 +9,7 @@ use App\Models\ClientAllergy;
 use App\Models\ClientStaffReference;
 use App\Models\Product;
 use App\Models\Staff;
+use App\Support\ImageData;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -63,6 +64,7 @@ class ProfileController extends Controller
             'phone' => ['nullable', 'string', 'max:15', 'regex:/^[\+]?[0-9\-\(\)\s]+$/'],
             'email' => ['sometimes', 'email:rfc,dns', 'max:100'],
             'dob' => ['nullable', 'date', 'before:today', 'after:1900-01-01'],
+            'image_data' => ['sometimes', ...ImageData::rules()],
             // Keep password rules aligned with frontend (min length + confirmation).
             'password' => ['nullable', 'string', 'confirmed', 'min:8'],
         ];

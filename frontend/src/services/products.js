@@ -1,4 +1,5 @@
 import { request } from './api'
+import { getEntityImage } from '../utils/imageDataUrl'
 
 export const productService = {
   mapApiProduct(apiProduct) {
@@ -7,7 +8,7 @@ export const productService = {
       id: apiProduct.product_id,
       name: apiProduct.product_name,
       price: Number(apiProduct.unit_price),
-      image: apiProduct.image_url || 'https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9',
+      image: getEntityImage(apiProduct, 'https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9'),
       description: apiProduct.description || '',
       category: apiProduct.category || 'hair',
       stock_quantity: apiProduct.stock_quantity,

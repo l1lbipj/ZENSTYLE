@@ -21,6 +21,7 @@ class Staff extends Authenticatable
         'phone',
         'email',
         'password',
+        'image_data',
         'dob',
         'status',
     ];

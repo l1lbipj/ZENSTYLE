@@ -12,6 +12,34 @@ use Illuminate\Support\Facades\Schema;
 
 class StaffWorkController extends Controller
 {
+    private function usesMixedItemSchema(): bool
+    {
+        return Schema::hasColumn('appointment_details', 'item_id');
+    }
+
+    private function usesLegacyItemTypeValues(): bool
+    {
+        try {
+            $column = \Illuminate\Support\Facades\DB::selectOne("SHOW COLUMNS FROM appointment_details LIKE 'item_type'");
+            $type = strtolower((string) ($column->Type ?? ''));
+
+            return str_contains($type, "enum('skin','hair')") || str_contains($type, 'enum(\'skin\',\'hair\')');
+        } catch (\Throwable) {
+            return false;
+        }
+    }
+
+    private function constrainServiceDetails($query, bool $usesMixedItemSchema, bool $usesLegacyItemTypeValues): void
+    {
+        if ($usesMixedItemSchema && ! $usesLegacyItemTypeValues) {
+            $query->where('item_type', 'service');
+
+            return;
+        }
+
+        $query->whereNotNull('service_id');
+    }
+
     private function isStaff(Request $request): bool
     {
         $abilities = $request->user()?->currentAccessToken()?->abilities ?? [];
@@ -50,19 +78,28 @@ class StaffWorkController extends Controller
         }
 
         $staffId = (int) $request->user()->getKey();
+        $usesMixedItemSchema = $this->usesMixedItemSchema();
+        $usesLegacyItemTypeValues = $this->usesLegacyItemTypeValues();
         $query = Appointment::query()
             ->with([
                 'client:client_id,client_name,phone,email',
-                'appointmentDetails' => function ($q) use ($staffId) {
-                    $q->where('staff_id', $staffId)->where('item_type', 'service');
+                'appointmentDetails' => function ($q) use ($staffId, $usesLegacyItemTypeValues, $usesMixedItemSchema) {
+                    $q->where('staff_id', $staffId);
+                    $this->constrainServiceDetails($q, $usesMixedItemSchema, $usesLegacyItemTypeValues);
                 },
-                'appointmentDetails.item',
+                'appointmentDetails.service',
+                'appointmentDetails.product',
                 'appointmentDetails.staff:staff_id,staff_name',
             ])
-            ->whereHas('appointmentDetails', function ($q) use ($staffId) {
-                $q->where('staff_id', $staffId)->where('item_type', 'service');
+            ->whereHas('appointmentDetails', function ($q) use ($staffId, $usesLegacyItemTypeValues, $usesMixedItemSchema) {
+                $q->where('staff_id', $staffId);
+                $this->constrainServiceDetails($q, $usesMixedItemSchema, $usesLegacyItemTypeValues);
             })
             ->orderByDesc('appointment_date');
+
+        if ($usesMixedItemSchema) {
+            $query->with('appointmentDetails.item');
+        }
 
         if ($status = $request->query('status')) {
             $query->where('status', $status);

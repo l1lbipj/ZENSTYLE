@@ -15,6 +15,7 @@ class Product extends Model
         'category',
         'description',
         'image_url',
+        'image_data',
         'stock_quantity',
         'unit_price',
         'reorder_level',

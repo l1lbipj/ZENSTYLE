@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests\Api;
 
+use App\Support\ImageData;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rules\Password;
@@ -48,6 +49,7 @@ class StoreClientRequest extends FormRequest
                 },
             ],
             'password' => ['required', 'string', 'confirmed', Password::min(8)->letters()->mixedCase()->numbers()->symbols()->uncompromised()],
+            'image_data' => ImageData::rules(),
             'dob' => ['nullable', 'date', 'before:today', 'after:1900-01-01'],
             'status' => ['nullable', 'in:active,inactive'],
         ];

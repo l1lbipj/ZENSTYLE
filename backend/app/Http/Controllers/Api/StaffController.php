@@ -96,6 +96,7 @@ class StaffController extends Controller
             'phone' => $data['phone'] ?? null,
             'email' => $data['email'],
             'password' => Hash::make($data['password']),
+            'image_data' => $data['image_data'] ?? null,
             'dob' => $data['dob'] ?? null,
             'status' => $data['status'] ?? 'active',
         ]);

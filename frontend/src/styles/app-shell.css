@@ -108,6 +108,12 @@
   top: 0;
   height: 100vh;
   overflow-y: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.zs-shell__nav::-webkit-scrollbar {
+  display: none;
 }
 
 .zs-shell__brand {
@@ -138,17 +144,76 @@
   gap: 0.5rem;
 }
 
+.zs-shell__nav-groups {
+  display: grid;
+  gap: 1.15rem;
+}
+
+.zs-shell__group {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.zs-shell__group-title {
+  margin: 0;
+  padding: 0 0.8rem;
+  font-size: 0.72rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #8a6a3c;
+  font-weight: 700;
+}
+
 .zs-shell__link {
   color: #3c2f1b;
   text-decoration: none;
   padding: 0.6rem 0.8rem;
   border-radius: 14px;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.7rem;
   transition: background 0.2s ease;
+}
+
+.zs-shell__link-icon {
+  width: 18px;
+  height: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0.88;
 }
 
 .zs-shell__link.active,
 .zs-shell__link:hover {
   background: rgba(255, 255, 255, 0.7);
+}
+
+.zs-shell--client .zs-shell__nav {
+  background: linear-gradient(180deg, #f4e5c0 0%, #f2dec0 50%, #efd9ba 100%);
+}
+
+.zs-shell--client .zs-shell__brand {
+  padding: 0.25rem 0.35rem 0.85rem;
+  border-bottom: 1px solid rgba(122, 90, 42, 0.18);
+}
+
+.zs-shell--client .zs-shell__header h1 {
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.zs-shell--client .zs-shell__welcome {
+  color: #8a6a3c;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.zs-shell--client .zs-shell__badge {
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid rgba(122, 90, 42, 0.14);
 }
 
 .zs-shell__user {

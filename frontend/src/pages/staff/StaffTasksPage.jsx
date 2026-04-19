@@ -17,6 +17,14 @@ function mapStatus(appointment) {
   return 'pending'
 }
 
+function isServiceDetail(detail) {
+  return detail?.item_type === 'service' || Boolean(detail?.service_id || detail?.service)
+}
+
+function getServiceName(detail) {
+  return detail?.item?.service_name || detail?.service?.service_name || 'Service'
+}
+
 export default function StaffTasksPage() {
   const [filter, setFilter] = useState('all')
   const [appointments, setAppointments] = useState([])
@@ -35,12 +43,12 @@ export default function StaffTasksPage() {
       rows.forEach((appointment) => {
         const appointmentDetails = appointment?.appointment_details || appointment?.appointmentDetails || []
         appointmentDetails.forEach((detail) => {
-          if (detail?.item_type !== 'service') return
+          if (!isServiceDetail(detail)) return
           details.push({
             id: detail?.detail_id,
             customerName: appointment?.client?.client_name || 'Customer',
-            phone: appointment?.client?.phone || '—',
-            serviceName: detail?.item?.service_name || 'Service',
+            phone: appointment?.client?.phone || '-',
+            serviceName: getServiceName(detail),
             datetime: appointment?.appointment_date,
             status: mapStatus(appointment),
           })
