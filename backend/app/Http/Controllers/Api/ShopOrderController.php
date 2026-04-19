@@ -27,31 +27,43 @@ class ShopOrderController extends Controller
 
     public function index(Request $request)
     {
-        if ($resp = $this->ensureClient($request)) {
-            return $resp;
+        $abilities = $this->abilities($request);
+        $isAdmin = in_array('admin', $abilities, true);
+
+        if (! $isAdmin && ! in_array('client', $abilities, true)) {
+            return ApiResponse::error('Access denied.', 403, 'FORBIDDEN');
         }
 
-        $orders = ShopOrder::query()
+        $query = ShopOrder::query()
             ->with(['items.product:product_id,product_name,image_url,unit_price'])
-            ->where('client_id', $request->user()->getKey())
-            ->orderByDesc('shop_order_id')
-            ->limit(50)
-            ->get();
+            ->orderByDesc('shop_order_id');
+
+        if (! $isAdmin) {
+            $query->where('client_id', $request->user()->getKey());
+        }
+
+        $orders = $query->limit(50)->get();
 
         return ApiResponse::success($orders, 'Orders retrieved.');
     }
 
     public function show(Request $request, int $id)
     {
-        if ($resp = $this->ensureClient($request)) {
-            return $resp;
+        $abilities = $this->abilities($request);
+        $isAdmin = in_array('admin', $abilities, true);
+
+        $query = ShopOrder::query()
+            ->with(['items.product:product_id,product_name,image_url,unit_price'])
+            ->where('shop_order_id', $id);
+
+        if (! $isAdmin) {
+            if (! in_array('client', $abilities, true)) {
+                return ApiResponse::error('Access denied.', 403, 'FORBIDDEN');
+            }
+            $query->where('client_id', $request->user()->getKey());
         }
 
-        $order = ShopOrder::query()
-            ->with(['items.product:product_id,product_name,image_url,unit_price'])
-            ->where('client_id', $request->user()->getKey())
-            ->where('shop_order_id', $id)
-            ->first();
+        $order = $query->first();
 
         if (! $order) {
             return ApiResponse::error('Order not found.', 404, 'NOT_FOUND');

@@ -61,6 +61,25 @@ export default function Navbar() {
     navigate('/', { replace: true })
   }
 
+  const handleNotifications = () => {
+    if (!user) {
+      navigate('/login')
+      return
+    }
+
+    if (user.role === 'staff') {
+      navigate('/staff/notifications')
+      return
+    }
+
+    if (user.role === 'admin') {
+      navigate('/admin/notifications')
+      return
+    }
+
+    navigate('/client/activities')
+  }
+
   return (
     <header className="zs-nav">
       <div className="zs-nav__inner">
@@ -83,7 +102,7 @@ export default function Navbar() {
             <IconCart />
             {totalQuantity > 0 && <span className="zs-nav__badge">{totalQuantity > 99 ? '99+' : totalQuantity}</span>}
           </Link>
-          <button type="button" className="zs-nav__icon-btn" aria-label="Notifications">
+          <button type="button" className="zs-nav__icon-btn" aria-label="Notifications" onClick={handleNotifications}>
             <IconBell />
           </button>
           {user ? (

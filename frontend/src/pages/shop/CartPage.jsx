@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { useCart } from '../../context/useCart'
 import { useAuth } from '../../context/useAuth'
 import { CART_PROMO, getCartPromoDiscountRate, STORAGE_KEYS } from '../../constants'
+import useNotification from '../../hooks/useNotification'
 import '../../styles/shop.css'
 import Modal from '../../components/ui/Modal'
 import businessApi from '../../Api/businessApi'
@@ -41,6 +42,7 @@ export default function CartPage() {
   const { items, updateQty, removeItem, subtotal, clearCart } = useCart()
   const { user } = useAuth()
   const navigate = useNavigate()
+  const notify = useNotification()
   const [pendingPromo, setPendingPromo] = useState(readSessionPromo)
   const [appliedPromo, setAppliedPromo] = useState(readSessionPromo)
   const [promoMessage, setPromoMessage] = useState(null)
@@ -79,18 +81,18 @@ export default function CartPage() {
   const applyPromo = () => {
     setPromoMessage(null)
     if (items.length === 0) {
-      setPromoMessage({ type: 'error', text: 'Your cart is empty.' })
+      notify.warning('Your cart is empty.')
       return
     }
     if (pendingPromo === CART_PROMO.NONE) {
       setAppliedPromo(CART_PROMO.NONE)
       writeSessionPromo(CART_PROMO.NONE)
-      setPromoMessage({ type: 'info', text: 'Promo code removed.' })
+      notify.info('Promo code removed.')
       return
     }
     setAppliedPromo(pendingPromo)
     writeSessionPromo(pendingPromo)
-    setPromoMessage({ type: 'success', text: `Applied: ${promoLabel(pendingPromo)}.` })
+    notify.success(`Applied: ${promoLabel(pendingPromo)}.`)
   }
 
   const handleQtyInput = (id, raw) => {
@@ -127,6 +129,7 @@ export default function CartPage() {
     setCheckoutDone(null)
 
     if (!shippingForm.name.trim() || !shippingForm.phone.trim() || !shippingForm.address.trim()) {
+      notify.error('Please fill name, phone, and address.')
       setCheckoutError('Please fill name, phone, and address.')
       return
     }
@@ -155,12 +158,14 @@ export default function CartPage() {
       setAppliedPromo(CART_PROMO.NONE)
       setPendingPromo(CART_PROMO.NONE)
       writeSessionPromo(CART_PROMO.NONE)
+      notify.success(`Order #${order?.shop_order_id} placed successfully! Total: $${Number(order?.total_amount || 0).toFixed(2)}`)
     } catch (err) {
       const msg =
         err?.response?.data?.message ||
         err?.message ||
         'Checkout failed. Please try again.'
       setCheckoutError(msg)
+      notify.error(msg)
     } finally {
       setCheckoutSubmitting(false)
     }

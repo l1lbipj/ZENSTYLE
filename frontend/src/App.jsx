@@ -49,6 +49,7 @@ import ClientLayout from './layouts/ClientLayout'
 import AuthLayout from './layouts/AuthLayout'
 import RequireRoleRoute from './components/auth/RequireRoleRoute'
 import RequireAuth from './routes/RequireAuth'
+import NotificationsPage from './pages/notifications/NotificationsPage'
 import UserProfilePage from './pages/UserProfilePage'
 
 function App() {
@@ -87,6 +88,7 @@ function App() {
           <Route path="inventory" element={<InventoryManagementPage />} />
           <Route path="suppliers" element={<SupplierManagementPage />} />
           <Route path="reports" element={<ReportsPage />} />
+          <Route path="notifications" element={<NotificationsPage />} />
         </Route>
 
         {/* Staff layout */}
@@ -94,6 +96,7 @@ function App() {
           <Route index element={<StaffDashboard />} />
           <Route path="tasks" element={<StaffTasksPage />} />
           <Route path="schedule" element={<StaffSchedulePage />} />
+          <Route path="notifications" element={<NotificationsPage />} />
         </Route>
 
         {/* Client layout */}

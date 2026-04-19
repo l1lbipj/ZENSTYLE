@@ -21,10 +21,12 @@ const NotFoundPage = lazy(() => import('../pages/NotFoundPage'))
 const ClientDashboard = lazy(() => import('../pages/client/ClientDashboard'))
 const BookAppointmentPage = lazy(() => import('../pages/client/BookAppointmentPage'))
 const ClientAppointmentsPage = lazy(() => import('../pages/client/ClientAppointmentsPage'))
+const UnifiedActivityPage = lazy(() => import('../pages/client/UnifiedActivityPage'))
 const ServiceHistoryPage = lazy(() => import('../pages/client/ServiceHistoryPage'))
 const RewardsPage = lazy(() => import('../pages/client/RewardsPage'))
 const FeedbackPage = lazy(() => import('../pages/client/FeedbackPage'))
 const ClientProfilePage = lazy(() => import('../pages/client/ClientProfilePage'))
+const NotificationsPage = lazy(() => import('../pages/notifications/NotificationsPage'))
 const StaffDashboard = lazy(() => import('../pages/staff/StaffDashboard'))
 const StaffSchedulePage = lazy(() => import('../pages/staff/StaffSchedulePage'))
 const StaffTasksPage = lazy(() => import('../pages/staff/StaffTasksPage'))
@@ -83,6 +85,7 @@ export default function AppRoutes() {
             <Route index element={<ClientDashboard />} />
             <Route path="book" element={<BookAppointmentPage />} />
             <Route path="appointments" element={<ClientAppointmentsPage />} />
+            <Route path="activities" element={<UnifiedActivityPage />} />
             <Route path="history" element={<ServiceHistoryPage />} />
             <Route path="rewards" element={<RewardsPage />} />
             <Route path="feedback" element={<FeedbackPage />} />
@@ -100,6 +103,7 @@ export default function AppRoutes() {
             <Route index element={<StaffDashboard />} />
             <Route path="schedule" element={<StaffSchedulePage />} />
             <Route path="tasks" element={<StaffTasksPage />} />
+            <Route path="notifications" element={<NotificationsPage />} />
           </Route>
 
           <Route
@@ -117,6 +121,7 @@ export default function AppRoutes() {
             <Route path="inventory" element={<InventoryManagementPage />} />
             <Route path="suppliers" element={<SupplierManagementPage />} />
             <Route path="reports" element={<ReportsPage />} />
+            <Route path="notifications" element={<NotificationsPage />} />
           </Route>
         </Route>
 

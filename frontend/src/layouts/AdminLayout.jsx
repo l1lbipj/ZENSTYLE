@@ -6,6 +6,8 @@ const navSections = [
     title: 'Overview',
     items: [
       { label: 'Dashboard', to: '/admin', icon: 'home' },
+      { label: 'Notifications', to: '/admin/notifications', icon: 'task' },
+      { label: 'My profile', to: '/profile', icon: 'user' },
     ],
   },
   {
@@ -29,10 +31,10 @@ const navSections = [
 export default function AdminLayout() {
   return (
     <AppShell
-      title="Admin Dashboard"
+      title="Admin Account Area"
       badgeLabel="Admin"
       navSections={navSections}
-      welcome="Welcome to the admin area"
+      welcome="Welcome to your admin account area"
       variant="admin"
     >
       <Outlet />

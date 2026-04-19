@@ -6,6 +6,8 @@ const navSections = [
     title: 'Overview',
     items: [
       { label: 'Dashboard', to: '/staff', icon: 'home' },
+      { label: 'Notifications', to: '/staff/notifications', icon: 'task' },
+      { label: 'My profile', to: '/profile', icon: 'user' },
     ],
   },
   {
@@ -25,10 +27,10 @@ const navSections = [
 export default function StaffLayout() {
   return (
     <AppShell
-      title="Staff Dashboard"
+      title="Staff Account Area"
       badgeLabel="Staff"
       navSections={navSections}
-      welcome="Welcome to the staff area"
+      welcome="Welcome to your staff account area"
       variant="staff"
     >
       <Outlet />

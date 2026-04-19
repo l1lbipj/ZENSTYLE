@@ -8,6 +8,7 @@ use App\Http\Controllers\Api\AppointmentController;
 use App\Http\Controllers\Api\DashboardController;
 use App\Http\Controllers\Api\FeedbackController;
 use App\Http\Controllers\Api\ManagementController;
+use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\ProductController;
 use App\Http\Controllers\Api\ProfileController;
 use App\Http\Controllers\Api\ShopOrderController;
@@ -53,6 +54,7 @@ Route::prefix('v1')->group(function () {
         Route::patch('/appointments/{id}/check-out', [AppointmentController::class, 'checkOut'])->whereNumber('id');
         Route::put('/appointments/{id}/reschedule', [AppointmentController::class, 'reschedule'])->whereNumber('id');
         Route::patch('/appointment-details/{id}/complete', [AppointmentController::class, 'completeDetail'])->whereNumber('id');
+        Route::get('/notifications', [NotificationController::class, 'index']);
 
         Route::get('/services', [ManagementController::class, 'services']);
 

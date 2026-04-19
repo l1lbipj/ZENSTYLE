@@ -4,11 +4,13 @@ import AppointmentForm from '../../components/forms/AppointmentForm'
 import Card from '../../components/ui/Card'
 import PageHeader from '../../components/ui/PageHeader'
 import Section from '../../components/ui/Section'
+import useNotification from '../../hooks/useNotification'
 import businessApi from '../../Api/businessApi'
 import staffApi from '../../Api/staffApi'
 import { formatUSD } from '../../utils/money'
 
 export default function BookAppointmentPage() {
+  const notify = useNotification()
   const [loading, setLoading] = useState(false)
   const [feedback, setFeedback] = useState(null)
   const [serviceOptions, setServiceOptions] = useState([])
@@ -43,6 +45,7 @@ export default function BookAppointmentPage() {
         )
       } catch {
         if (!isMounted) return
+        notify.error('Could not load service and staff options right now.')
         setFeedback({ type: 'error', message: 'Could not load service and staff options right now.' })
       }
     }
@@ -63,7 +66,7 @@ export default function BookAppointmentPage() {
         const endMinutes = h * 60 + m + 60
         const endHourText = `${String(Math.floor(endMinutes / 60)).padStart(2, '0')}:${String(endMinutes % 60).padStart(2, '0')}`
 
-        await businessApi.bookAppointment({
+        const response = await businessApi.bookAppointment({
           appointment_date: formData.date,
           items: [
             {
@@ -77,7 +80,9 @@ export default function BookAppointmentPage() {
           ],
           payment_method: 'cash',
         })
+        
         setFeedback({ type: 'success', message: 'Your appointment request was sent successfully.' })
+        notify.success(`Appointment #${response?.data?.data?.appointment_id} booked successfully!`)
       } catch (error) {
         const responseData = error?.response?.data
         const firstFieldError =
@@ -90,11 +95,12 @@ export default function BookAppointmentPage() {
           error?.message ||
           'Could not book appointment. Please try again.'
         setFeedback({ type: 'error', message })
+        notify.error(message)
       } finally {
         setLoading(false)
       }
     },
-    [],
+    [notify],
   )
 
   return (
