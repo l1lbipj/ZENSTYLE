@@ -58,15 +58,9 @@ const Login = () => {
 
     try {
       setSubmitting(true);
-      const userType = await authenticateAndHydrateUser(() => authApi.login(payload));
+      await authenticateAndHydrateUser(() => authApi.login(payload));
       message.success('Login successful!');
-      if (userType === 'admin') {
-        navigate('/admin');
-      } else if (userType === 'staff') {
-        navigate('/staff');
-      } else {
-        navigate('/client');
-      }
+      navigate('/');
     } catch (error) {
       const errorMessage = getApiErrorMessage(error);
       message.error(errorMessage);
@@ -94,15 +88,9 @@ const Login = () => {
         callback: async (googleResponse) => {
           try {
             setGoogleLoading(true);
-            const userType = await authenticateAndHydrateUser(() => authApi.googleLogin({ credential: googleResponse.credential }));
+            await authenticateAndHydrateUser(() => authApi.googleLogin({ credential: googleResponse.credential }));
             message.success('Google login successful!');
-            if (userType === 'admin') {
-              navigate('/admin');
-            } else if (userType === 'staff') {
-              navigate('/staff');
-            } else {
-              navigate('/client');
-            }
+            navigate('/');
           } catch (error) {
             message.error(getApiErrorMessage(error));
           } finally {
