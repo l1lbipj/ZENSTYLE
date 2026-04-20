@@ -3,17 +3,16 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Api\UpdateClientPreferencesRequest;
+use App\Http\Requests\Api\UpdateMyProfileRequest;
 use App\Http\Responses\ApiResponse;
+use App\Models\Allergy;
 use App\Models\Appointment;
-use App\Models\ClientAllergy;
 use App\Models\ClientStaffReference;
-use App\Models\Product;
-use App\Models\Staff;
-use App\Support\ImageData;
+use App\Support\ClientAllergySync;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Validation\Rule;
 
 class ProfileController extends Controller
 {
@@ -39,17 +38,25 @@ class ProfileController extends Controller
         ];
 
         if ($role === 'client') {
+            $user->loadMissing(['allergies:allergies.allergy_id,allergy_name']);
+
             $data['summary'] = [
                 'history_count' => Appointment::where('client_id', $user->getKey())->count(),
                 'membership_point' => (int) $user->membership_point,
                 'membership_tier' => $user->membership_tier,
             ];
+            $data['allergies'] = $user->allergies
+                ->map(fn ($allergy) => [
+                    'allergy_id' => (int) $allergy->allergy_id,
+                    'allergy_name' => $allergy->allergy_name,
+                ])
+                ->values();
         }
 
         return ApiResponse::success($data, 'Profile retrieved.');
     }
 
-    public function updateMe(Request $request)
+    public function updateMe(UpdateMyProfileRequest $request, ClientAllergySync $clientAllergySync)
     {
         $user = $request->user();
         if (! $user) {
@@ -60,29 +67,11 @@ class ProfileController extends Controller
         $isClient = in_array('client', $abilities, true);
         $isStaff = in_array('staff', $abilities, true);
 
-        $rules = [
-            'phone' => ['nullable', 'string', 'max:15', 'regex:/^[\+]?[0-9\-\(\)\s]+$/'],
-            'email' => ['sometimes', 'email:rfc,dns', 'max:100'],
-            'dob' => ['nullable', 'date', 'before:today', 'after:1900-01-01'],
-            'image_data' => ['sometimes', ...ImageData::rules()],
-            // Keep password rules aligned with frontend (min length + confirmation).
-            'password' => ['nullable', 'string', 'confirmed', 'min:8'],
-        ];
-
-        if ($isClient) {
-            // Support generic `name` from frontend.
-            $rules['name'] = ['required_without:client_name', 'string', 'min:2', 'max:100'];
-            $rules['client_name'] = ['required_without:name', 'string', 'min:2', 'max:100'];
-        } elseif ($isStaff) {
-            $rules['name'] = ['required_without:staff_name', 'string', 'min:2', 'max:100'];
-            $rules['staff_name'] = ['required_without:name', 'string', 'min:2', 'max:100'];
-            $rules['specialization'] = ['sometimes', 'string', 'max:100'];
-        } else {
-            $rules['name'] = ['required_without:admin_name', 'string', 'min:2', 'max:100'];
-            $rules['admin_name'] = ['required_without:name', 'string', 'min:2', 'max:100'];
-        }
-
-        $validated = $request->validate($rules);
+        $validated = $request->validated();
+        $hasAllergyPayload = $request->exists('allergy_ids') || $request->exists('custom_allergies');
+        $allergyIds = $validated['allergy_ids'] ?? [];
+        $customAllergies = $validated['custom_allergies'] ?? [];
+        unset($validated['allergy_ids'], $validated['custom_allergies']);
 
         if (isset($validated['name'])) {
             $name = trim((string) $validated['name']);
@@ -97,25 +86,7 @@ class ProfileController extends Controller
         }
 
         if (isset($validated['email'])) {
-            $email = strtolower(trim($validated['email']));
-            $emailExistsInClients = DB::table('clients')
-                ->where('email', $email)
-                ->where('client_id', '!=', $isClient ? $user->getKey() : 0)
-                ->exists();
-            $emailExistsInStaff = DB::table('staff')
-                ->where('email', $email)
-                ->where('staff_id', '!=', $isStaff ? $user->getKey() : 0)
-                ->exists();
-            $emailExistsInAdmins = DB::table('admins')
-                ->where('email', $email)
-                ->where('admin_id', '!=', (! $isClient && ! $isStaff) ? $user->getKey() : 0)
-                ->exists();
-
-            if ($emailExistsInClients || $emailExistsInStaff || $emailExistsInAdmins) {
-                return ApiResponse::error('The email has already been taken.', 422, 'VALIDATION_ERROR');
-            }
-
-            $validated['email'] = $email;
+            $validated['email'] = strtolower(trim((string) $validated['email']));
         }
 
         if (! empty($validated['password'])) {
@@ -124,10 +95,20 @@ class ProfileController extends Controller
             unset($validated['password']);
         }
 
-        $user->fill($validated);
-        $user->save();
+        DB::transaction(function () use ($allergyIds, $customAllergies, $clientAllergySync, $hasAllergyPayload, $isClient, $user, $validated): void {
+            $user->fill($validated);
+            $user->save();
 
-        return ApiResponse::success($user->fresh(), 'Profile updated.');
+            if ($isClient && $hasAllergyPayload) {
+                $clientAllergySync->sync($user, $allergyIds, $customAllergies);
+            }
+        });
+
+        $freshUser = $isClient
+            ? $user->fresh()->load('allergies:allergies.allergy_id,allergy_name')
+            : $user->fresh();
+
+        return ApiResponse::success($freshUser, 'Profile updated.');
     }
 
     public function clientHistory(Request $request)
@@ -140,7 +121,7 @@ class ProfileController extends Controller
             ->with([
                 'appointmentDetails.staff:staff_id,staff_name',
                 'appointmentDetails.item',
-                'feedback:feedback_id,appointment_id,rating,notes,manager_reply,replied_at',
+                'feedback:feedback_id,appointment_id,customer_id,staff_id,rating,comment,notes,reply,manager_reply,replied_at',
             ])
             ->where('client_id', $request->user()->getKey())
             ->orderByDesc('appointment_date')
@@ -161,6 +142,12 @@ class ProfileController extends Controller
             ->join('allergies', 'allergies.allergy_id', '=', 'client_allergies.allergy_id')
             ->where('client_allergies.client_id', $clientId)
             ->select('allergies.allergy_id', 'allergies.allergy_name')
+            ->orderBy('allergies.allergy_name')
+            ->get();
+
+        $availableAllergies = Allergy::query()
+            ->select('allergy_id', 'allergy_name')
+            ->orderBy('allergy_name')
             ->get();
 
         $preferredStaff = DB::table('client_staff_preferences')
@@ -177,37 +164,24 @@ class ProfileController extends Controller
 
         return ApiResponse::success([
             'allergies' => $allergies,
+            'available_allergies' => $availableAllergies,
             'preferred_staff' => $preferredStaff,
             'favorite_products' => $favoriteProducts,
         ], 'Client preferences retrieved.');
     }
 
-    public function updateClientPreferences(Request $request)
+    public function updateClientPreferences(UpdateClientPreferencesRequest $request, ClientAllergySync $clientAllergySync)
     {
-        if (! in_array('client', $this->abilities($request), true)) {
-            return ApiResponse::error('Access denied.', 403, 'FORBIDDEN');
-        }
-
-        $validated = $request->validate([
-            'allergy_ids' => ['nullable', 'array'],
-            'allergy_ids.*' => ['integer', Rule::exists('allergies', 'allergy_id')],
-            'preferred_staff' => ['nullable', 'array'],
-            'preferred_staff.*.staff_id' => ['required', 'integer', Rule::exists('staff', 'staff_id')],
-            'preferred_staff.*.note' => ['nullable', 'string'],
-            'favorite_product_ids' => ['nullable', 'array'],
-            'favorite_product_ids.*' => ['integer', Rule::exists('products', 'product_id')],
-        ]);
-
+        $validated = $request->validated();
         $clientId = $request->user()->getKey();
+        $client = $request->user();
 
-        DB::transaction(function () use ($validated, $clientId) {
-            ClientAllergy::where('client_id', $clientId)->delete();
-            foreach ($validated['allergy_ids'] ?? [] as $allergyId) {
-                ClientAllergy::create([
-                    'client_id' => $clientId,
-                    'allergy_id' => $allergyId,
-                ]);
-            }
+        DB::transaction(function () use ($client, $clientAllergySync, $validated, $clientId): void {
+            $clientAllergySync->sync(
+                $client,
+                $validated['allergy_ids'] ?? [],
+                $validated['custom_allergies'] ?? [],
+            );
 
             ClientStaffReference::where('client_id', $clientId)->delete();
             foreach ($validated['preferred_staff'] ?? [] as $item) {
@@ -230,5 +204,19 @@ class ProfileController extends Controller
         });
 
         return $this->clientPreferences($request);
+    }
+
+    public function allergyCatalog(Request $request)
+    {
+        if (! $request->user()) {
+            return ApiResponse::error('Unauthenticated.', 401, 'UNAUTHENTICATED');
+        }
+
+        $allergies = Allergy::query()
+            ->select('allergy_id', 'allergy_name')
+            ->orderBy('allergy_name')
+            ->get();
+
+        return ApiResponse::success($allergies, 'Allergy catalog retrieved.');
     }
 }

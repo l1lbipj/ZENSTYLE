@@ -52,7 +52,15 @@ export default function Navbar() {
   const { totalQuantity } = useCart()
   const navigate = useNavigate()
   const dashboardPath = user ? (user.role === 'client' ? '/client' : getRoleRedirectPath(user.role)) : '/login'
-  const profilePath = user ? (user.role === 'client' ? '/client/profile' : '/profile') : '/login'
+  const profilePath = user
+    ? user.role === 'client'
+      ? '/client/profile'
+      : user.role === 'staff'
+      ? '/staff/profile'
+      : user.role === 'admin'
+      ? '/admin/profile'
+      : '/profile'
+    : '/login'
   const cartLabel =
     totalQuantity > 0 ? `Shopping cart, ${totalQuantity} items` : 'Shopping cart, empty'
 

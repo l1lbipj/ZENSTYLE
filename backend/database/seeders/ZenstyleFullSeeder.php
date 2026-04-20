@@ -82,6 +82,22 @@ class ZenstyleFullSeeder extends Seeder
         while (DB::table('clients')->where('phone', $demoClientPhone)->exists()) {
             $demoClientPhone = '09' . str_pad((string) random_int(0, 99999999), 8, '0', STR_PAD_LEFT);
         }
+        $demoStaffPhone1 = '0901111111';
+        while (DB::table('staff')->where('phone', $demoStaffPhone1)->exists()) {
+            $demoStaffPhone1 = '09' . str_pad((string) random_int(0, 99999999), 8, '0', STR_PAD_LEFT);
+        }
+        $demoStaffPhone2 = '0902222222';
+        while (DB::table('staff')->where('phone', $demoStaffPhone2)->exists() || $demoStaffPhone2 === $demoStaffPhone1) {
+            $demoStaffPhone2 = '09' . str_pad((string) random_int(0, 99999999), 8, '0', STR_PAD_LEFT);
+        }
+        $demoClientPhone1 = '0911111111';
+        while (DB::table('clients')->where('phone', $demoClientPhone1)->exists()) {
+            $demoClientPhone1 = '09' . str_pad((string) random_int(0, 99999999), 8, '0', STR_PAD_LEFT);
+        }
+        $demoClientPhone2 = '0922222222';
+        while (DB::table('clients')->where('phone', $demoClientPhone2)->exists() || $demoClientPhone2 === $demoClientPhone1) {
+            $demoClientPhone2 = '09' . str_pad((string) random_int(0, 99999999), 8, '0', STR_PAD_LEFT);
+        }
 
         Staff::updateOrCreate(
             ['email' => 'staff@zenstyle.com'],
@@ -96,6 +112,32 @@ class ZenstyleFullSeeder extends Seeder
                 'updated_at' => $now,
             ]
         );
+        Staff::updateOrCreate(
+            ['email' => 'staff1@zenstyle.com'],
+            [
+                'staff_name' => 'Demo Staff 1',
+                'specialization' => 'Hair Stylist',
+                'phone' => $demoStaffPhone1,
+                'password' => Hash::make('Staff@12345'),
+                'dob' => '1998-01-02',
+                'status' => 'active',
+                'created_at' => $now,
+                'updated_at' => $now,
+            ]
+        );
+        Staff::updateOrCreate(
+            ['email' => 'staff2@zenstyle.com'],
+            [
+                'staff_name' => 'Demo Staff 2',
+                'specialization' => 'Skincare Specialist',
+                'phone' => $demoStaffPhone2,
+                'password' => Hash::make('Staff@12345'),
+                'dob' => '1998-01-03',
+                'status' => 'active',
+                'created_at' => $now,
+                'updated_at' => $now,
+            ]
+        );
 
         Client::updateOrCreate(
             ['email' => 'client@zenstyle.com'],
@@ -104,6 +146,34 @@ class ZenstyleFullSeeder extends Seeder
                 'phone' => $demoClientPhone,
                 'password' => Hash::make('Client@12345'),
                 'dob' => '2000-01-01',
+                'status' => 'active',
+                'membership_point' => 0,
+                'membership_tier' => 'bronze',
+                'created_at' => $now,
+                'updated_at' => $now,
+            ]
+        );
+        Client::updateOrCreate(
+            ['email' => 'client1@zenstyle.com'],
+            [
+                'client_name' => 'Demo Client 1',
+                'phone' => $demoClientPhone1,
+                'password' => Hash::make('Client@12345'),
+                'dob' => '2000-01-02',
+                'status' => 'active',
+                'membership_point' => 0,
+                'membership_tier' => 'bronze',
+                'created_at' => $now,
+                'updated_at' => $now,
+            ]
+        );
+        Client::updateOrCreate(
+            ['email' => 'client2@zenstyle.com'],
+            [
+                'client_name' => 'Demo Client 2',
+                'phone' => $demoClientPhone2,
+                'password' => Hash::make('Client@12345'),
+                'dob' => '2000-01-03',
                 'status' => 'active',
                 'membership_point' => 0,
                 'membership_tier' => 'bronze',

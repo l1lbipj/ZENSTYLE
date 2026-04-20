@@ -1,0 +1,125 @@
+.zs-feedback-kpi {
+  margin: 0;
+  font-family: var(--font-heading);
+  font-size: 2.2rem;
+  color: var(--zs-olive);
+}
+
+.zs-feedback-list {
+  display: grid;
+  gap: 1rem;
+}
+
+.zs-feedback-item {
+  background: var(--zs-surface);
+  border: 1px solid var(--zs-border);
+  border-radius: 18px;
+  padding: 1.1rem 1.15rem;
+  box-shadow: var(--zs-shadow);
+  display: grid;
+  gap: 0.8rem;
+}
+
+.zs-feedback-item__header {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.zs-feedback-item__header h3 {
+  margin: 0;
+  font-size: 1.05rem;
+}
+
+.zs-feedback-item__header p {
+  margin: 0.28rem 0 0;
+  color: var(--zs-ink-muted);
+  font-size: 0.9rem;
+}
+
+.zs-feedback-item__status {
+  display: grid;
+  gap: 0.5rem;
+  justify-items: end;
+}
+
+.zs-feedback-stars {
+  margin: 0;
+  letter-spacing: 0.05em;
+  color: #9d7a21;
+  font-size: 1rem;
+}
+
+.zs-feedback-item__comment {
+  margin: 0;
+  color: #36433b;
+  line-height: 1.45;
+}
+
+.zs-feedback-reply-box {
+  background: #ebf6f0;
+  border: 1px solid #b9dec9;
+  border-radius: 14px;
+  padding: 0.75rem 0.85rem;
+  color: #1b4d33;
+  line-height: 1.45;
+}
+
+.zs-feedback-reply-box h4,
+.zs-feedback-reply-box p {
+  margin: 0;
+}
+
+.zs-feedback-reply-box h4 {
+  margin-bottom: 0.35rem;
+}
+
+.zs-feedback-detail {
+  display: grid;
+  gap: 1rem;
+}
+
+.zs-feedback-detail__grid {
+  display: grid;
+  gap: 0.9rem;
+}
+
+.zs-feedback-detail__grid section {
+  border: 1px solid var(--zs-border);
+  border-radius: 12px;
+  padding: 0.8rem;
+  background: #fff;
+}
+
+.zs-feedback-detail__grid h4 {
+  margin: 0 0 0.4rem;
+  color: #5d4a2e;
+}
+
+.zs-feedback-detail__grid p {
+  margin: 0.3rem 0 0;
+  color: #3a463e;
+}
+
+.zs-feedback-detail__comment {
+  white-space: pre-wrap;
+}
+
+.zs-feedback-reply-editor {
+  display: grid;
+  gap: 0.6rem;
+}
+
+.zs-feedback-reply-editor h4 {
+  margin: 0;
+}
+
+@media (max-width: 720px) {
+  .zs-feedback-item__header {
+    flex-direction: column;
+  }
+
+  .zs-feedback-item__status {
+    justify-items: start;
+  }
+}

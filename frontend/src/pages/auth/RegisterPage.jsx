@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/useAuth'
-import { getRoleRedirectPath } from '../../routes/roleRedirect'
 import registerWarm from '../../assets/register-warm.png'
 import registerIn from '../../assets/register-in.jpg'
 
@@ -47,7 +46,7 @@ export default function RegisterPage() {
 
     setLoading(true)
     try {
-      const user = await register({
+      await register({
         name: form.name,
         email: form.email,
         phone: form.phone,
@@ -56,7 +55,7 @@ export default function RegisterPage() {
         confirmPassword: form.confirmPassword,
         role: 'client',
       })
-      navigate(getRoleRedirectPath(user.role), { replace: true })
+      navigate('/', { replace: true })
     } catch (err) {
       const responseData = err?.response?.data
       const firstFieldError =

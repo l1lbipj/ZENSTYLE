@@ -15,6 +15,7 @@ export default function BookAppointmentPage() {
   const [feedback, setFeedback] = useState(null)
   const [serviceOptions, setServiceOptions] = useState([])
   const [staffOptions, setStaffOptions] = useState([])
+  const [serviceDurationById, setServiceDurationById] = useState({})
 
   useEffect(() => {
     let isMounted = true
@@ -37,6 +38,12 @@ export default function BookAppointmentPage() {
             label: `${item.service_name} (${formatUSD(item.price || 0, { from: 'VND' })})`,
           })),
         )
+        setServiceDurationById(
+          services.reduce((acc, item) => {
+            acc[String(item.service_id)] = Number(item.duration) || 60
+            return acc
+          }, {}),
+        )
         setStaffOptions(
           staffs.map((item) => ({
             value: String(item.staff_id),
@@ -54,30 +61,49 @@ export default function BookAppointmentPage() {
     return () => {
       isMounted = false
     }
-  }, [])
+  }, [notify])
 
   const handleSubmit = useCallback(
     async (formData) => {
       setFeedback(null)
       setLoading(true)
       try {
-        const startHour = formData.time
-        const [h, m] = startHour.split(':').map((n) => Number(n))
-        const endMinutes = h * 60 + m + 60
-        const endHourText = `${String(Math.floor(endMinutes / 60)).padStart(2, '0')}:${String(endMinutes % 60).padStart(2, '0')}`
+        if (!Array.isArray(formData.services) || formData.services.length > 3) {
+          throw new Error('You can select up to 3 services per appointment.')
+        }
+
+        const seenSlots = new Set()
+        const items = formData.services.map((serviceRow, index) => {
+          const [h, m] = serviceRow.time.split(':').map((n) => Number(n))
+          const duration = serviceDurationById[serviceRow.service] || 60
+          const endMinutes = h * 60 + m + duration
+          if (Number.isNaN(h) || Number.isNaN(m)) {
+            throw new Error(`Service #${index + 1} has an invalid start time.`)
+          }
+          if (endMinutes > 24 * 60 - 1) {
+            throw new Error(`Service #${index + 1} ends after 11:59 PM. Please choose an earlier start time.`)
+          }
+
+          const endHourText = `${String(Math.floor(endMinutes / 60)).padStart(2, '0')}:${String(endMinutes % 60).padStart(2, '0')}`
+          const slotKey = `${serviceRow.staff}-${serviceRow.time}-${endHourText}`
+          if (seenSlots.has(slotKey)) {
+            throw new Error(`Duplicate time slot detected for service #${index + 1}. Please choose a different time.`)
+          }
+          seenSlots.add(slotKey)
+
+          return {
+            staff_id: Number(serviceRow.staff),
+            item_type: 'service',
+            item_id: Number(serviceRow.service),
+            quantity: 1,
+            start_time: serviceRow.time,
+            end_time: endHourText,
+          }
+        })
 
         const response = await businessApi.bookAppointment({
           appointment_date: formData.date,
-          items: [
-            {
-              staff_id: Number(formData.staff),
-              item_type: 'service',
-              item_id: Number(formData.service),
-              quantity: 1,
-              start_time: formData.time,
-              end_time: endHourText,
-            },
-          ],
+          items,
           payment_method: 'cash',
         })
         
@@ -89,9 +115,10 @@ export default function BookAppointmentPage() {
           responseData?.errors && typeof responseData.errors === 'object'
             ? Object.values(responseData.errors)?.flat?.()?.[0]
             : null
+        const errorCode = responseData?.code ? ` (${responseData.code})` : ''
         const message =
           firstFieldError ||
-          responseData?.message ||
+          (responseData?.message ? `${responseData.message}${errorCode}` : null) ||
           error?.message ||
           'Could not book appointment. Please try again.'
         setFeedback({ type: 'error', message })
@@ -100,14 +127,14 @@ export default function BookAppointmentPage() {
         setLoading(false)
       }
     },
-    [notify],
+    [notify, serviceDurationById],
   )
 
   return (
     <div className="zs-dashboard">
       <PageHeader
         title="Book an appointment"
-        subtitle="Choose a service, pick your preferred staff member, and reserve a time that works for you."
+        subtitle="Plan your visit in a few steps with clear service details, staff assignment, and preferred schedule."
         action={
           <Link className="zs-btn zs-btn--ghost zs-btn--sm" to="/client/appointments">
             View my appointments
@@ -126,17 +153,20 @@ export default function BookAppointmentPage() {
       )}
 
       <div className="zs-dashboard__row">
-        <Card title="Before you book" description="A few quick notes to help you book smoothly.">
+        <Card title="Booking checklist" description="Everything your team needs for a smooth appointment.">
           <ul className="zs-list">
-            <li>Choose the treatment you want first so prices are clear.</li>
-            <li>Select a preferred staff member if you already have someone in mind.</li>
-            <li>Pick a date and time you can confidently attend.</li>
+            <li>Choose up to 3 services in one booking request.</li>
+            <li>Assign a preferred staff member for each service.</li>
+            <li>Select practical start times to avoid scheduling conflicts.</li>
           </ul>
         </Card>
-        <Card title="Need a quick shortcut?" description="Common follow-up actions for clients.">
+        <Card title="Need support?" description="Useful shortcuts before or after booking.">
           <div className="zs-action-row">
             <Link className="zs-btn zs-btn--primary zs-btn--sm" to="/client/profile">
               My account
+            </Link>
+            <Link className="zs-btn zs-btn--ghost zs-btn--sm" to="/client/appointments">
+              Appointment history
             </Link>
             <Link className="zs-btn zs-btn--ghost zs-btn--sm" to="/client/rewards">
               Rewards
@@ -145,7 +175,7 @@ export default function BookAppointmentPage() {
         </Card>
       </div>
 
-      <Section title="Appointment details" description="Fill in the details below to send your booking request.">
+      <Section title="Appointment workspace" description="Complete each service block and confirm your booking request.">
         <AppointmentForm
           onSubmit={handleSubmit}
           loading={loading}

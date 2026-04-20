@@ -7,7 +7,7 @@ const navSections = [
     items: [
       { label: 'Dashboard', to: '/staff', icon: 'home' },
       { label: 'Notifications', to: '/staff/notifications', icon: 'task' },
-      { label: 'My profile', to: '/profile', icon: 'user' },
+      { label: 'My profile', to: '/staff/profile', icon: 'user' },
     ],
   },
   {
@@ -20,6 +20,7 @@ const navSections = [
     title: 'Tasks',
     items: [
       { label: 'Assigned Tasks', to: '/staff/tasks', icon: 'task' },
+      { label: 'Feedbacks', to: '/staff/feedbacks', icon: 'chat' },
     ],
   },
 ]

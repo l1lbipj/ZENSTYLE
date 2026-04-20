@@ -19,14 +19,20 @@ export default function ClientProfilePage() {
   const [message, setMessage] = useState('')
   const [messageTone, setMessageTone] = useState('success')
   const [loading, setLoading] = useState(true)
+  const [catalogAllergies, setCatalogAllergies] = useState([])
+  const [selectedAllergyIds, setSelectedAllergyIds] = useState([])
+  const [customAllergies, setCustomAllergies] = useState([])
+  const [customAllergyInput, setCustomAllergyInput] = useState('')
 
   useEffect(() => {
     let mounted = true
-    businessApi
-      .myProfile()
-      .then((res) => {
+    Promise.all([businessApi.myProfile(), businessApi.clientPreferences()])
+      .then(([profileRes, preferencesRes]) => {
         if (!mounted) return
-        const user = res?.data?.data?.user || {}
+        const user = profileRes?.data?.data?.user || {}
+        const preferencePayload = preferencesRes?.data?.data || {}
+        const serverAllergies = preferencePayload?.allergies || []
+        const availableAllergies = preferencePayload?.available_allergies || []
         setForm({
           client_name: user.client_name || '',
           email: user.email || '',
@@ -34,6 +40,8 @@ export default function ClientProfilePage() {
           dob: user.dob || '',
           image_data: user.image_data || '',
         })
+        setCatalogAllergies(availableAllergies)
+        setSelectedAllergyIds(serverAllergies.map((item) => Number(item.allergy_id)).filter((id) => Number.isFinite(id)))
       })
       .catch(() => {
         if (!mounted) return
@@ -80,7 +88,11 @@ export default function ClientProfilePage() {
     event.preventDefault()
     setMessage('')
     businessApi
-      .updateMyProfile(form)
+      .updateMyProfile({
+        ...form,
+        allergy_ids: selectedAllergyIds,
+        custom_allergies: customAllergies,
+      })
       .then(() => {
         setMessageTone('success')
         setMessage('Profile updated successfully.')
@@ -90,6 +102,26 @@ export default function ClientProfilePage() {
         setMessage(err?.response?.data?.message || 'Failed to update profile.')
       })
   }
+
+  const toggleAllergy = (allergyId) => {
+    setSelectedAllergyIds((prev) => (prev.includes(allergyId) ? prev.filter((item) => item !== allergyId) : [...prev, allergyId]))
+  }
+
+  const addCustomAllergy = () => {
+    const next = customAllergyInput.trim()
+    if (!next) return
+    if (customAllergies.some((item) => item.toLowerCase() === next.toLowerCase())) {
+      setCustomAllergyInput('')
+      return
+    }
+    setCustomAllergies((prev) => [...prev, next])
+    setCustomAllergyInput('')
+  }
+
+  const selectedCatalogAllergies = useMemo(
+    () => catalogAllergies.filter((item) => selectedAllergyIds.includes(Number(item.allergy_id))),
+    [catalogAllergies, selectedAllergyIds],
+  )
 
   return (
     <div className="zs-dashboard">
@@ -123,6 +155,11 @@ export default function ClientProfilePage() {
               <h3 style={{ margin: 0 }}>{form.client_name || 'ZenStyle client'}</h3>
               <p className="zs-card__description">{form.email || 'No email available'}</p>
               <p className="zs-card__description">{form.phone || 'No phone number yet'}</p>
+              {selectedCatalogAllergies.length > 0 || customAllergies.length > 0 ? (
+                <p className="zs-card__description">
+                  Allergies: {[...selectedCatalogAllergies.map((item) => item.allergy_name), ...customAllergies].join(', ')}
+                </p>
+              ) : null}
             </div>
           </div>
         </Card>
@@ -157,6 +194,51 @@ export default function ClientProfilePage() {
               <input className="zs-input" type="file" accept="image/png,image/jpeg,image/jpg,image/webp,image/gif" onChange={handleImageChange} />
               <span className="zs-field__hint">Choose a clear photo so your account feels more personal.</span>
             </label>
+            <div className="zs-field">
+              <span className="zs-field__label">Allergies</span>
+              <div className="zs-action-row">
+                {catalogAllergies.map((item) => {
+                  const allergyId = Number(item.allergy_id)
+                  const active = selectedAllergyIds.includes(allergyId)
+                  return (
+                    <button
+                      key={item.allergy_id}
+                      type="button"
+                      className={`zs-btn zs-btn--sm ${active ? 'zs-btn--primary' : 'zs-btn--ghost'}`}
+                      onClick={() => toggleAllergy(allergyId)}
+                    >
+                      {item.allergy_name}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+            <div className="zs-field">
+              <span className="zs-field__label">Custom allergy</span>
+              <div className="zs-action-row">
+                <input
+                  className="zs-input"
+                  placeholder="Type custom allergy"
+                  value={customAllergyInput}
+                  onChange={(e) => setCustomAllergyInput(e.target.value)}
+                />
+                <Button type="button" variant="ghost" onClick={addCustomAllergy}>Add</Button>
+              </div>
+              {customAllergies.length > 0 ? (
+                <div className="zs-action-row">
+                  {customAllergies.map((item) => (
+                    <button
+                      key={item}
+                      type="button"
+                      className="zs-btn zs-btn--sm zs-btn--ghost"
+                      onClick={() => setCustomAllergies((prev) => prev.filter((x) => x !== item))}
+                    >
+                      {item} x
+                    </button>
+                  ))}
+                </div>
+              ) : null}
+            </div>
             <div className="zs-action-row">
               <Button type="submit">Save changes</Button>
               {form.image_data ? (

@@ -40,6 +40,18 @@ class Client extends Authenticatable
         return $this->hasMany(ClientAllergy::class, 'client_id', 'client_id');
     }
 
+    public function allergies()
+    {
+        return $this->belongsToMany(
+            Allergy::class,
+            'client_allergies',
+            'client_id',
+            'allergy_id',
+            'client_id',
+            'allergy_id'
+        )->withTimestamps();
+    }
+
     public function clientProductPreferences()
     {
         return $this->hasMany(ClientProductReference::class, 'client_id', 'client_id');

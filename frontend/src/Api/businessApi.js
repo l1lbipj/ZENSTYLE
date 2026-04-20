@@ -21,13 +21,17 @@ const businessApi = {
 
   myProfile: () => axiosClient.get('/profile/me'),
   updateMyProfile: (payload) => axiosClient.put('/profile/me', payload),
+  allergyCatalog: () => axiosClient.get('/allergies'),
   clientHistory: (params) => axiosClient.get('/client/me/history', { params }),
   clientPreferences: () => axiosClient.get('/client/me/preferences'),
   updateClientPreferences: (payload) => axiosClient.put('/client/me/preferences', payload),
 
   feedbackList: (params) => axiosClient.get('/feedback', { params }),
   submitFeedback: (payload) => axiosClient.post('/feedback', payload),
-  replyFeedback: (id, payload) => axiosClient.patch(`/feedback/${id}/reply`, payload),
+  replyFeedback: (id, payload) => axiosClient.post(`/feedbacks/${id}/reply`, payload),
+  replyFeedbackLegacy: (id, payload) => axiosClient.patch(`/feedback/${id}/reply`, payload),
+  adminFeedbacks: () => axiosClient.get('/admin/feedbacks'),
+  staffFeedbacks: () => axiosClient.get('/staff/feedbacks'),
 
   services: (params) => axiosClient.get('/management/services', { params }),
   createService: (payload) => axiosClient.post('/management/services', payload),

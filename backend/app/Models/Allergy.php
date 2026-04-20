@@ -17,4 +17,16 @@ class Allergy extends Model
     {
         return $this->hasMany(ClientAllergy::class, 'allergy_id', 'allergy_id');
     }
+
+    public function clients()
+    {
+        return $this->belongsToMany(
+            Client::class,
+            'client_allergies',
+            'allergy_id',
+            'client_id',
+            'allergy_id',
+            'client_id'
+        )->withTimestamps();
+    }
 }

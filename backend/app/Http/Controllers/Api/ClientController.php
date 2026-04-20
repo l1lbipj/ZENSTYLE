@@ -7,6 +7,7 @@ use App\Http\Requests\Api\StoreClientRequest;
 use App\Http\Requests\Api\UpdateClientRequest;
 use App\Http\Responses\ApiResponse;
 use App\Models\Client;
+use App\Support\ClientAllergySync;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 
@@ -19,7 +20,6 @@ class ClientController extends Controller
 
     public function index(Request $request)
     {
-        // Only admin can view all clients
         if (! $request->user()) {
             return ApiResponse::error('Unauthenticated.', 401, 'UNAUTHENTICATED');
         }
@@ -35,13 +35,9 @@ class ClientController extends Controller
         ]);
 
         $perPage = $validated['per_page'] ?? 10;
+        $clients = Client::with('allergies:allergies.allergy_id,allergy_name')->paginate($perPage);
 
-        $clients = Client::paginate($perPage);
-
-        return ApiResponse::success(
-            $clients,
-            'Clients retrieved.',
-        );
+        return ApiResponse::success($clients, 'Clients retrieved.');
     }
 
     public function show(Request $request, string $id)
@@ -53,8 +49,7 @@ class ClientController extends Controller
         $abilities = $this->abilities($request);
         $isAdmin = in_array('admin', $abilities, true);
 
-        // If not admin, only allow viewing their own record
-        if (!$isAdmin && (int) $id !== (int) $request->user()->getKey()) {
+        if (! $isAdmin && (int) $id !== (int) $request->user()->getKey()) {
             return ApiResponse::error(
                 'You are not allowed to view this client record.',
                 403,
@@ -62,7 +57,7 @@ class ClientController extends Controller
             );
         }
 
-        $client = Client::find($id);
+        $client = Client::with('allergies:allergies.allergy_id,allergy_name')->find($id);
 
         if (! $client) {
             return ApiResponse::error('Client not found.', 404, 'NOT_FOUND');
@@ -73,7 +68,6 @@ class ClientController extends Controller
 
     public function store(StoreClientRequest $request)
     {
-        // Only admin can create clients
         if (! $request->user()) {
             return ApiResponse::error('Unauthenticated.', 401, 'UNAUTHENTICATED');
         }
@@ -99,7 +93,7 @@ class ClientController extends Controller
         return ApiResponse::success($client, 'Client created.', 201);
     }
 
-    public function update(UpdateClientRequest $request, string $id)
+    public function update(UpdateClientRequest $request, string $id, ClientAllergySync $clientAllergySync)
     {
         if (! $request->user()) {
             return ApiResponse::error('Unauthenticated.', 401, 'UNAUTHENTICATED');
@@ -108,8 +102,7 @@ class ClientController extends Controller
         $abilities = $this->abilities($request);
         $isAdmin = in_array('admin', $abilities, true);
 
-        // If not admin, only allow updating their own record
-        if (!$isAdmin && (int) $id !== (int) $request->user()->getKey()) {
+        if (! $isAdmin && (int) $id !== (int) $request->user()->getKey()) {
             return ApiResponse::error(
                 'You are not allowed to update this client record.',
                 403,
@@ -124,6 +117,10 @@ class ClientController extends Controller
         }
 
         $data = $request->validated();
+        $allergyIds = $data['allergy_ids'] ?? [];
+        $customAllergies = $data['custom_allergies'] ?? [];
+        $hasAllergyPayload = $request->exists('allergy_ids') || $request->exists('custom_allergies');
+        unset($data['allergy_ids'], $data['custom_allergies']);
 
         if (array_key_exists('password', $data) && $data['password'] !== null) {
             $data['password'] = Hash::make($data['password']);
@@ -133,7 +130,14 @@ class ClientController extends Controller
 
         $client->update($data);
 
-        return ApiResponse::success($client->fresh(), 'Client updated.');
+        if ($hasAllergyPayload) {
+            $clientAllergySync->sync($client, $allergyIds, $customAllergies);
+        }
+
+        return ApiResponse::success(
+            $client->fresh()->load('allergies:allergies.allergy_id,allergy_name'),
+            'Client updated.'
+        );
     }
 
     public function destroy(Request $request, string $id)
@@ -145,8 +149,7 @@ class ClientController extends Controller
         $abilities = $this->abilities($request);
         $isAdmin = in_array('admin', $abilities, true);
 
-        // If not admin, only allow deleting their own account
-        if (!$isAdmin && (int) $id !== (int) $request->user()->getKey()) {
+        if (! $isAdmin && (int) $id !== (int) $request->user()->getKey()) {
             return ApiResponse::error(
                 'You can only delete your own account.',
                 403,
@@ -159,7 +162,6 @@ class ClientController extends Controller
             return ApiResponse::error('Client not found.', 404, 'NOT_FOUND');
         }
 
-        // Nếu đã bị xóa mềm, không cho xóa lại
         if ($client->trashed()) {
             return ApiResponse::error('Client already deleted.', 410, 'GONE');
         }

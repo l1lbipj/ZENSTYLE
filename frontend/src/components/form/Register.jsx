@@ -225,6 +225,11 @@ const Register = () => {
                 Sign in
               </Link>
             </p>
+            <p style={{ margin: '8px 0 0', textAlign: 'center' }}>
+              <Link to="/" style={{ color: '#2563eb', fontWeight: 600 }}>
+                Back to homepage
+              </Link>
+            </p>
           </div>
         </div>
       </div>

@@ -20,11 +20,15 @@ import PromotionManagementPage from './pages/admin/PromotionManagementPage'
 import InventoryManagementPage from './pages/admin/InventoryManagementPage'
 import SupplierManagementPage from './pages/admin/SupplierManagementPage'
 import ReportsPage from './pages/admin/ReportsPage'
+import FeedbackManagementPage from './pages/admin/FeedbackManagementPage'
+import AdminProfilePage from './pages/admin/AdminProfilePage'
 
 // Staff pages
 import StaffDashboard from './pages/staff/StaffDashboard'
 import StaffTasksPage from './pages/staff/StaffTasksPage'
 import StaffSchedulePage from './pages/staff/StaffSchedulePage'
+import StaffFeedbackPage from './pages/staff/StaffFeedbackPage'
+import StaffProfilePage from './pages/staff/StaffProfilePage'
 
 // Client pages
 import ClientDashboard from './pages/client/ClientDashboard'
@@ -82,20 +86,24 @@ function App() {
         {/* Admin layout */}
         <Route path="/admin" element={<RequireRoleRoute allow={['admin']}><AdminLayout /></RequireRoleRoute>}>
           <Route index element={<AdminDashboard />} />
+          <Route path="profile" element={<AdminProfilePage />} />
           <Route path="staff" element={<StaffManagementPage />} />
           <Route path="services" element={<ServiceManagementPage />} />
           <Route path="promotions" element={<PromotionManagementPage />} />
           <Route path="inventory" element={<InventoryManagementPage />} />
           <Route path="suppliers" element={<SupplierManagementPage />} />
           <Route path="reports" element={<ReportsPage />} />
+          <Route path="feedbacks" element={<FeedbackManagementPage />} />
           <Route path="notifications" element={<NotificationsPage />} />
         </Route>
 
         {/* Staff layout */}
         <Route path="/staff" element={<RequireRoleRoute allow={['staff']}><StaffLayout /></RequireRoleRoute>}>
           <Route index element={<StaffDashboard />} />
+          <Route path="profile" element={<StaffProfilePage />} />
           <Route path="tasks" element={<StaffTasksPage />} />
           <Route path="schedule" element={<StaffSchedulePage />} />
+          <Route path="feedbacks" element={<StaffFeedbackPage />} />
           <Route path="notifications" element={<NotificationsPage />} />
         </Route>
 

@@ -7,7 +7,7 @@ const navSections = [
     items: [
       { label: 'Dashboard', to: '/admin', icon: 'home' },
       { label: 'Notifications', to: '/admin/notifications', icon: 'task' },
-      { label: 'My profile', to: '/profile', icon: 'user' },
+      { label: 'My profile', to: '/admin/profile', icon: 'user' },
     ],
   },
   {
@@ -18,6 +18,7 @@ const navSections = [
       { label: 'Promotions', to: '/admin/promotions', icon: 'gift' },
       { label: 'Inventory', to: '/admin/inventory', icon: 'box' },
       { label: 'Suppliers', to: '/admin/suppliers', icon: 'truck' },
+      { label: 'Feedbacks', to: '/admin/feedbacks', icon: 'chat' },
     ],
   },
   {

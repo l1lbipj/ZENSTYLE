@@ -68,6 +68,10 @@ class UpdateClientRequest extends FormRequest
             'status' => ['nullable', 'in:active,inactive'],
             'membership_point' => ['nullable', 'integer', 'min:0', 'max:1000000'],
             'membership_tier' => ['nullable', Rule::in(['bronze', 'silver', 'gold', 'platinum'])],
+            'allergy_ids' => ['nullable', 'array'],
+            'allergy_ids.*' => ['integer', Rule::exists('allergies', 'allergy_id')],
+            'custom_allergies' => ['nullable', 'array'],
+            'custom_allergies.*' => ['string', 'min:2', 'max:100'],
         ];
     }
 

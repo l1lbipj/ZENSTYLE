@@ -37,6 +37,8 @@ const PromotionManagementPage = lazy(() => import('../pages/admin/PromotionManag
 const InventoryManagementPage = lazy(() => import('../pages/admin/InventoryManagementPage'))
 const SupplierManagementPage = lazy(() => import('../pages/admin/SupplierManagementPage'))
 const ReportsPage = lazy(() => import('../pages/admin/ReportsPage'))
+const FeedbackManagementPage = lazy(() => import('../pages/admin/FeedbackManagementPage'))
+const StaffFeedbackPage = lazy(() => import('../pages/staff/StaffFeedbackPage'))
 const ProductListPage = lazy(() => import('../pages/shop/ProductListPage'))
 const ProductDetailPage = lazy(() => import('../pages/shop/ProductDetailPage'))
 const CartPage = lazy(() => import('../pages/shop/CartPage'))
@@ -103,6 +105,7 @@ export default function AppRoutes() {
             <Route index element={<StaffDashboard />} />
             <Route path="schedule" element={<StaffSchedulePage />} />
             <Route path="tasks" element={<StaffTasksPage />} />
+            <Route path="feedbacks" element={<StaffFeedbackPage />} />
             <Route path="notifications" element={<NotificationsPage />} />
           </Route>
 
@@ -121,6 +124,7 @@ export default function AppRoutes() {
             <Route path="inventory" element={<InventoryManagementPage />} />
             <Route path="suppliers" element={<SupplierManagementPage />} />
             <Route path="reports" element={<ReportsPage />} />
+            <Route path="feedbacks" element={<FeedbackManagementPage />} />
             <Route path="notifications" element={<NotificationsPage />} />
           </Route>
         </Route>

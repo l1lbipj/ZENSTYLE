@@ -83,6 +83,7 @@ class StaffWorkController extends Controller
         $query = Appointment::query()
             ->with([
                 'client:client_id,client_name,phone,email',
+                'client.allergies:allergies.allergy_id,allergy_name',
                 'appointmentDetails' => function ($q) use ($staffId, $usesLegacyItemTypeValues, $usesMixedItemSchema) {
                     $q->where('staff_id', $staffId);
                     $this->constrainServiceDetails($q, $usesMixedItemSchema, $usesLegacyItemTypeValues);

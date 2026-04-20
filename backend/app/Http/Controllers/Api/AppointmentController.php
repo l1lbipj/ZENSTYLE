@@ -3,17 +3,18 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\Api\StoreAppointmentRequest;
 use App\Http\Responses\ApiResponse;
 use App\Models\Appointment;
 use App\Models\AppointmentDetail;
 use App\Models\InventoryLog;
 use App\Models\Product;
 use App\Models\Service;
+use App\Models\StaffSchedule;
 use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
-use Illuminate\Validation\Rule;
 
 class AppointmentController extends Controller
 {
@@ -96,8 +97,9 @@ class AppointmentController extends Controller
         $query = Appointment::query()
             ->with(array_merge([
                 'client:client_id,client_name,email,phone',
+                'client.allergies:allergies.allergy_id,allergy_name',
                 'appointmentDetails.staff:staff_id,staff_name',
-                'feedback:feedback_id,appointment_id,rating,notes,manager_reply,replied_at',
+                'feedback:feedback_id,appointment_id,customer_id,staff_id,rating,comment,notes,reply,manager_reply,replied_at',
             ], $detailRelations))
             ->orderByDesc('appointment_date');
 
@@ -124,28 +126,10 @@ class AppointmentController extends Controller
         return ApiResponse::success($appointments, 'Appointments retrieved.');
     }
 
-    public function store(Request $request)
+    public function store(StoreAppointmentRequest $request)
     {
         $abilities = $this->abilities($request);
-        if (! array_intersect(['admin', 'staff', 'client'], $abilities)) {
-            return ApiResponse::error('Access denied.', 403, 'FORBIDDEN');
-        }
-
-        $validated = $request->validate([
-            'client_id' => ['nullable', 'integer', Rule::exists('clients', 'client_id')],
-            // Required only when there is at least one "service" item.
-            'appointment_date' => ['nullable', 'date', 'after_or_equal:today'],
-            'promotion_id' => ['nullable', 'integer', Rule::exists('promotions', 'promotion_id')],
-            'payment_method' => ['nullable', Rule::in(['cash', 'card'])],
-            'items' => ['required', 'array', 'min:1'],
-            'items.*.item_type' => ['required', Rule::in(['service', 'product'])],
-            'items.*.item_id' => ['required', 'integer'],
-            'items.*.quantity' => ['required', 'integer', 'min:1'],
-            // Service-only fields (validated again in loop for stricter rules).
-            'items.*.staff_id' => ['nullable', 'integer', Rule::exists('staff', 'staff_id')],
-            'items.*.start_time' => ['nullable', 'date_format:H:i'],
-            'items.*.end_time' => ['nullable', 'date_format:H:i'],
-        ]);
+        $validated = $request->validated();
 
         $clientId = $validated['client_id'] ?? $request->user()->getKey();
         if (in_array('client', $abilities, true)) {
@@ -350,6 +334,13 @@ class AppointmentController extends Controller
                     true,
                     $usesMixedItemSchema,
                 );
+
+                $this->ensureStaffAvailability(
+                    $appointmentDate,
+                    (int) $detail['staff_id'],
+                    (string) $detail['start_time'],
+                    (string) $detail['end_time'],
+                );
             }
 
             foreach ($detailsToCreate as $detail) {
@@ -377,7 +368,8 @@ class AppointmentController extends Controller
             }
 
             return $appointment->load([
-                'client:client_id,client_name,email',
+                'client:client_id,client_name,email,phone',
+                'client.allergies:allergies.allergy_id,allergy_name',
                 'appointmentDetails.staff:staff_id,staff_name',
                 'appointmentDetails.service',
                 'appointmentDetails.product',
@@ -582,6 +574,34 @@ class AppointmentController extends Controller
                     'code' => 'STAFF_SCHEDULE_OVERLAP',
                     'timestamp' => now()->toISOString(),
                 ], 422)
+            );
+        }
+    }
+
+    private function ensureStaffAvailability(
+        \Carbon\Carbon $appointmentDate,
+        int $staffId,
+        string $startTime,
+        string $endTime,
+    ): void
+    {
+        $schedule = StaffSchedule::query()
+            ->where('staff_id', $staffId)
+            ->whereDate('date', $appointmentDate->toDateString())
+            ->first();
+
+        if (! $schedule) {
+            // Some demo/local datasets do not generate full schedules for all future dates.
+            // In that case, skip shift-window validation and rely on overlap checks only.
+            return;
+        }
+
+        $shiftStart = substr((string) $schedule->check_in, 0, 5);
+        $shiftEnd = substr((string) $schedule->check_out, 0, 5);
+
+        if ($startTime < $shiftStart || $endTime > $shiftEnd) {
+            throw new HttpResponseException(
+                ApiResponse::error('Selected time is outside staff working hours.', 422, 'OUTSIDE_STAFF_SHIFT')
             );
         }
     }

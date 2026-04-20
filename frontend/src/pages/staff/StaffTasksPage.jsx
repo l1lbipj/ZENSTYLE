@@ -6,14 +6,18 @@ import styles from './StaffPages.module.css'
 
 const PAGE_SIZE = 8
 
-function mapStatus(appointment) {
+function mapStatus(appointment, detailStatus) {
   const appointmentStatus = appointment?.status
   const paymentStatus = appointment?.payment_status
 
-  if (appointmentStatus === 'cancelled') return 'cancelled'
-  if (appointmentStatus === 'inactive') {
+  if (appointmentStatus === 'inactive' || appointmentStatus === 'cancelled') {
     return paymentStatus === 'pay' ? 'completed' : 'cancelled'
   }
+
+  if (detailStatus === 'inactive') {
+    return 'completed'
+  }
+
   return 'pending'
 }
 
@@ -52,9 +56,11 @@ export default function StaffTasksPage() {
             appointmentId: appointment?.appointment_id,
             customerName: appointment?.client?.client_name || 'Customer',
             phone: appointment?.client?.phone || '-',
+            allergies: (appointment?.client?.allergies || []).map((item) => item?.allergy_name).filter(Boolean),
             serviceName: getServiceName(detail),
             datetimeRaw: appointment?.appointment_date,
-            status: mapStatus(appointment),
+            detailStatus: detail?.status,
+            status: mapStatus(appointment, detail?.status),
           })
         })
       })
@@ -121,6 +127,11 @@ export default function StaffTasksPage() {
     try {
       await businessApi.rescheduleAppointment(appointmentId, { appointment_date: value })
       handleMessage('success', 'Appointment updated successfully.')
+      setEditValues((prev) => {
+        const next = { ...prev }
+        delete next[appointmentId]
+        return next
+      })
       await loadAppointments()
     } catch (err) {
       handleMessage('error', err?.response?.data?.message || 'Unable to update appointment.')
@@ -180,21 +191,20 @@ export default function StaffTasksPage() {
           onPrevPage={() => setPage((prev) => Math.max(1, prev - 1))}
           onNextPage={() => setPage((prev) => Math.min(totalPages, prev + 1))}
           actionRenderer={(item) => {
-            const canEdit = item.status !== 'cancelled'
-            const showComplete = item.status === 'pending'
+            const isPending = item.status === 'pending'
             const appointmentId = item.appointmentId
             const value = editValues[appointmentId] ?? formatLocalDateTime(item.datetimeRaw)
 
             return (
               <div className={styles.rowActions}>
-                {showComplete ? (
+                {isPending ? (
                   <div className={styles.actionGroup}>
                     <button type="button" className={`${styles.actionButton} ${styles.actionButtonPrimary}`} onClick={() => handleComplete(item.id)}>
                       Mark complete
                     </button>
                   </div>
                 ) : null}
-                {canEdit ? (
+                {isPending ? (
                   <div className={styles.actionCell}>
                     <label className={styles.actionLabel} htmlFor={`edit-${appointmentId}`}>
                       Change date/time

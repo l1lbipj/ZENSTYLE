@@ -57,6 +57,7 @@ export default function AppointmentTable({
                 <tr>
                   <th>Customer</th>
                   <th>Phone</th>
+                  <th>Allergies</th>
                   <th>Service</th>
                   <th>Date time</th>
                   <th>Status</th>
@@ -68,6 +69,19 @@ export default function AppointmentTable({
                   <tr key={item.id}>
                     <td>{item.customerName}</td>
                     <td>{item.phone}</td>
+                    <td>
+                      {Array.isArray(item.allergies) && item.allergies.length > 0 ? (
+                        <div className={styles.allergyWrap}>
+                          {item.allergies.map((allergy) => (
+                            <span key={`${item.id}-${allergy}`} className={styles.allergyBadge}>
+                              {allergy}
+                            </span>
+                          ))}
+                        </div>
+                      ) : (
+                        <span className={styles.noAllergy}>None</span>
+                      )}
+                    </td>
                     <td>{item.serviceName}</td>
                     <td>{item.datetime}</td>
                     <td>

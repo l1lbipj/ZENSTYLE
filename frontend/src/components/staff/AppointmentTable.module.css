@@ -75,6 +75,7 @@
   color: #344054;
   padding: 12px 16px;
   border-top: 1px solid #eaecf0;
+  vertical-align: top;
 }
 
 .table tbody tr:nth-child(even) {
@@ -125,27 +126,39 @@
 .actionInput {
   width: 100%;
   min-width: 170px;
-  padding: 10px 12px;
-  border: 1px solid #d0d5dd;
-  border-radius: 12px;
+  padding: 8px 10px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
   font-size: 13px;
-  background: #f8fafc;
+  background: #ffffff;
+  color: #0f172a;
+  font-family: inherit;
+}
+
+.actionInput:focus {
+  outline: none;
+  border-color: #0f172a;
+  box-shadow: 0 0 0 3px rgba(15, 23, 42, 0.1);
 }
 
 .actionButton {
-  padding: 8px 14px;
-  border-radius: 10px;
+  padding: 7px 12px;
+  border-radius: 6px;
   border: 1px solid transparent;
-  background: #f8fafc;
-  color: #0f172a;
   font-size: 13px;
+  font-weight: 500;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: all 0.2s ease;
+  white-space: nowrap;
 }
 
 .actionButton:hover {
-  background: #e2e8f0;
   transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.actionButton:active {
+  transform: translateY(0);
 }
 
 .actionButtonPrimary {
@@ -155,22 +168,24 @@
 }
 
 .actionButtonPrimary:hover {
-  background: #111827;
+  background: #1e293b;
 }
 
 .actionButtonDanger {
-  background: #fee2e2;
-  color: #991b1b;
+  background: #ffffff;
+  color: #dc2626;
   border-color: #fca5a5;
 }
 
 .actionButtonDanger:hover {
-  background: #fca5a5;
+  background: #fee2e2;
+  border-color: #f87171;
 }
 
 .actionHint {
   font-size: 13px;
-  color: #667085;
+  color: #94a3b8;
+  font-style: italic;
 }
 
 .pending {
@@ -186,6 +201,29 @@
 .cancelled {
   background: #fee2e2;
   color: #991b1b;
+}
+
+.allergyWrap {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  min-width: 140px;
+}
+
+.allergyBadge {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  background: #fef3c7;
+  color: #92400e;
+  border: 1px solid #f59e0b;
+}
+
+.noAllergy {
+  color: #98a2b3;
 }
 
 .footer {

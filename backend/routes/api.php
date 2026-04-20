@@ -39,6 +39,7 @@ Route::prefix('v1')->group(function () {
     Route::middleware(['auth:sanctum'])->group(function () {
         Route::get('/profile/me', [ProfileController::class, 'me']);
         Route::put('/profile/me', [ProfileController::class, 'updateMe']);
+        Route::get('/allergies', [ProfileController::class, 'allergyCatalog']);
         Route::get('/client/me/history', [ProfileController::class, 'clientHistory']);
         Route::get('/client/me/preferences', [ProfileController::class, 'clientPreferences']);
         Route::put('/client/me/preferences', [ProfileController::class, 'updateClientPreferences']);
@@ -61,6 +62,9 @@ Route::prefix('v1')->group(function () {
         Route::get('/feedback', [FeedbackController::class, 'index']);
         Route::post('/feedback', [FeedbackController::class, 'store']);
         Route::patch('/feedback/{id}/reply', [FeedbackController::class, 'reply'])->whereNumber('id');
+        Route::post('/feedbacks/{id}/reply', [FeedbackController::class, 'reply'])->whereNumber('id');
+        Route::get('/admin/feedbacks', [FeedbackController::class, 'adminIndex']);
+        Route::get('/staff/feedbacks', [FeedbackController::class, 'staffIndex']);
 
         Route::get('/management/services', [ManagementController::class, 'services']);
         Route::post('/management/services', [ManagementController::class, 'storeService']);

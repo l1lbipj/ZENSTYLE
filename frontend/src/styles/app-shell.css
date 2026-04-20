@@ -1020,6 +1020,129 @@
   flex-wrap: wrap;
 }
 
+.zs-form-error {
+  color: #b42318;
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.zs-booking-form {
+  display: grid;
+  gap: 1rem;
+}
+
+.zs-booking-form__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+  padding: 1rem 1.1rem;
+  border: 1px solid #e6ecf4;
+  border-radius: 14px;
+  background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+}
+
+.zs-booking-form__head h4 {
+  margin: 0;
+  font-size: 1rem;
+  color: #0f172a;
+}
+
+.zs-booking-form__head p {
+  margin: 0.35rem 0 0;
+  color: #667085;
+  font-size: 0.86rem;
+}
+
+.zs-booking-form__counter {
+  background: #eef4ff;
+  color: #1d4ed8;
+  padding: 0.35rem 0.7rem;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.zs-booking-form__date {
+  padding: 0.95rem 1.1rem;
+  border-radius: 14px;
+  border: 1px solid #e6ecf4;
+  background: #ffffff;
+}
+
+.zs-booking-form__services {
+  display: grid;
+  gap: 0.8rem;
+}
+
+.zs-booking-form__service-card {
+  padding: 0.95rem 1.05rem;
+  border-radius: 14px;
+  border: 1px solid #e6ecf4;
+  background: #ffffff;
+  box-shadow: 0 4px 20px rgba(15, 23, 42, 0.04);
+}
+
+.zs-booking-form__service-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 0.75rem;
+}
+
+.zs-booking-form__service-head h5 {
+  margin: 0;
+  color: #0f172a;
+  font-size: 0.95rem;
+}
+
+.zs-booking-form__service-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.8rem;
+}
+
+.zs-booking-form__summary {
+  padding: 0.95rem 1.1rem;
+  border-radius: 14px;
+  border: 1px solid #e6ecf4;
+  background: #f9fbff;
+}
+
+.zs-booking-form__summary h5 {
+  margin: 0 0 0.6rem;
+  font-size: 0.9rem;
+  color: #0f172a;
+}
+
+.zs-booking-form__summary ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 0.5rem;
+}
+
+.zs-booking-form__summary li {
+  display: grid;
+  grid-template-columns: 1.5fr 1fr auto;
+  gap: 0.7rem;
+  padding: 0.55rem 0.65rem;
+  border-radius: 10px;
+  background: #ffffff;
+  border: 1px solid #e9eef6;
+  align-items: center;
+  font-size: 0.84rem;
+  color: #475467;
+}
+
+.zs-booking-form__summary strong {
+  color: #0f172a;
+  font-weight: 700;
+}
+
 .zs-admin-grid {
   display: grid;
   grid-template-columns: minmax(0, 2fr) minmax(260px, 1fr);
@@ -1150,5 +1273,18 @@
 
   .zs-shell__content {
     padding: 1.5rem;
+  }
+
+  .zs-booking-form__head {
+    flex-direction: column;
+  }
+
+  .zs-booking-form__service-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .zs-booking-form__summary li {
+    grid-template-columns: 1fr;
+    gap: 0.25rem;
   }
 }
