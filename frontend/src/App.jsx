@@ -17,6 +17,7 @@ import AdminDashboard from './pages/admin/AdminDashboard'
 import StaffManagementPage from './pages/admin/StaffManagementPage'
 import ServiceManagementPage from './pages/admin/ServiceManagementPage'
 import PromotionManagementPage from './pages/admin/PromotionManagementPage'
+import AdminOrdersPage from './pages/admin/AdminOrdersPage'
 import InventoryManagementPage from './pages/admin/InventoryManagementPage'
 import SupplierManagementPage from './pages/admin/SupplierManagementPage'
 import ReportsPage from './pages/admin/ReportsPage'
@@ -38,6 +39,7 @@ import ServiceHistoryPage from './pages/client/ServiceHistoryPage'
 import RewardsPage from './pages/client/RewardsPage'
 import FeedbackPage from './pages/client/FeedbackPage'
 import ClientProfilePage from './pages/client/ClientProfilePage'
+import UnifiedActivityPage from './pages/client/UnifiedActivityPage'
 
 // Shop pages
 import ProductListPage from './pages/shop/ProductListPage'
@@ -90,6 +92,7 @@ function App() {
           <Route path="staff" element={<StaffManagementPage />} />
           <Route path="services" element={<ServiceManagementPage />} />
           <Route path="promotions" element={<PromotionManagementPage />} />
+          <Route path="orders" element={<AdminOrdersPage />} />
           <Route path="inventory" element={<InventoryManagementPage />} />
           <Route path="suppliers" element={<SupplierManagementPage />} />
           <Route path="reports" element={<ReportsPage />} />
@@ -111,6 +114,7 @@ function App() {
         <Route path="/client" element={<RequireRoleRoute allow={['client']}><ClientLayout /></RequireRoleRoute>}>
           <Route index element={<ClientDashboard />} />
           <Route path="book" element={<BookAppointmentPage />} />
+          <Route path="activities" element={<UnifiedActivityPage />} />
           <Route path="appointments" element={<ClientAppointmentsPage />} />
           <Route path="history" element={<ServiceHistoryPage />} />
           <Route path="rewards" element={<RewardsPage />} />

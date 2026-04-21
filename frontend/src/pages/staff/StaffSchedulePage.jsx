@@ -64,7 +64,11 @@ export default function StaffSchedulePage() {
 
         <section className={styles.card}>
           <h3 className={styles.cardTitle}>Weekly calendar</h3>
-          <CalendarView title="This week" columns={['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']} />
+          <CalendarView
+            title="This week"
+            columns={['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']}
+            busyItems={schedules}
+          />
         </section>
 
         <ScheduleSection

@@ -9,6 +9,7 @@ use App\Models\AppointmentDetail;
 use App\Models\Client;
 use App\Models\Product;
 use App\Models\Staff;
+use App\Models\ShopOrder;
 use App\Models\StaffSchedule;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -31,15 +32,37 @@ class DashboardController extends Controller
         $monthStart = now()->copy()->startOfMonth();
         $yearStart = now()->copy()->startOfYear();
 
-        $todayRevenue = Appointment::whereDate('appointment_date', $today)
+        $todayAppointmentRevenue = Appointment::whereDate('appointment_date', $today)
             ->where('payment_status', 'pay')
             ->sum('final_amount');
-        $monthRevenue = Appointment::whereDate('appointment_date', '>=', $monthStart)
+        $monthAppointmentRevenue = Appointment::whereDate('appointment_date', '>=', $monthStart)
             ->where('payment_status', 'pay')
             ->sum('final_amount');
-        $yearRevenue = Appointment::whereDate('appointment_date', '>=', $yearStart)
+        $yearAppointmentRevenue = Appointment::whereDate('appointment_date', '>=', $yearStart)
             ->where('payment_status', 'pay')
             ->sum('final_amount');
+
+        // Include paid shop orders in revenue calculations (shop orders use shop_orders.total_amount in USD).
+        // Convert shop USD totals to VND for consistency with appointment amounts (which are in VND).
+        $vndPerUsd = (float) env('VND_PER_USD', 25000);
+
+        $todayShopRevenueUsd = ShopOrder::whereDate('created_at', $today)
+            ->where('status', 'paid')
+            ->sum('total_amount');
+        $monthShopRevenueUsd = ShopOrder::whereDate('created_at', '>=', $monthStart)
+            ->where('status', 'paid')
+            ->sum('total_amount');
+        $yearShopRevenueUsd = ShopOrder::whereDate('created_at', '>=', $yearStart)
+            ->where('status', 'paid')
+            ->sum('total_amount');
+
+        $todayShopRevenue = (float) $todayShopRevenueUsd * $vndPerUsd;
+        $monthShopRevenue = (float) $monthShopRevenueUsd * $vndPerUsd;
+        $yearShopRevenue = (float) $yearShopRevenueUsd * $vndPerUsd;
+
+        $todayRevenue = (float) $todayAppointmentRevenue + $todayShopRevenue;
+        $monthRevenue = (float) $monthAppointmentRevenue + $monthShopRevenue;
+        $yearRevenue = (float) $yearAppointmentRevenue + $yearShopRevenue;
 
         $upcomingAppointments = Appointment::query()
             ->with(['client:client_id,client_name', 'appointmentDetails.staff:staff_id,staff_name', 'appointmentDetails.item'])

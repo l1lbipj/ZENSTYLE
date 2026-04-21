@@ -1,6 +1,6 @@
 import { useMemo, useState, useEffect } from 'react'
 import businessApi from '../../Api/businessApi'
-import { formatDateTime } from '../../utils/dateTime'
+import { formatFullDateTime } from '../../utils/dateTime'
 import AppointmentTable from '../../components/staff/AppointmentTable'
 import styles from './StaffPages.module.css'
 
@@ -183,7 +183,7 @@ export default function StaffTasksPage() {
           error={error}
           rows={pagedAppointments.map((item) => ({
             ...item,
-            datetime: formatDateTime(item.datetimeRaw),
+            datetime: formatFullDateTime(item.datetimeRaw),
           }))}
           page={page}
           totalPages={totalPages}

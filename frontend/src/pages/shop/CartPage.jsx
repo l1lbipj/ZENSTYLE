@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useCart } from '../../context/useCart'
 import { useAuth } from '../../context/useAuth'
-import { CART_PROMO, getCartPromoDiscountRate, STORAGE_KEYS } from '../../constants'
+import { STORAGE_KEYS } from '../../constants'
 import useNotification from '../../hooks/useNotification'
 import '../../styles/shop.css'
 import Modal from '../../components/ui/Modal'
@@ -13,29 +13,19 @@ const SHIPPING_FLAT = 5
 function readSessionPromo() {
   try {
     const v = sessionStorage.getItem(STORAGE_KEYS.CART_PROMO_SESSION)
-    if (v === CART_PROMO.ZEN10 || v === CART_PROMO.ZEN20) return v
+    return v || null
   } catch {
-    /* private mode */
+    return null
   }
-  return CART_PROMO.NONE
 }
 
 function writeSessionPromo(code) {
   try {
-    if (code === CART_PROMO.NONE) {
-      sessionStorage.removeItem(STORAGE_KEYS.CART_PROMO_SESSION)
-    } else {
-      sessionStorage.setItem(STORAGE_KEYS.CART_PROMO_SESSION, code)
-    }
+    if (!code) sessionStorage.removeItem(STORAGE_KEYS.CART_PROMO_SESSION)
+    else sessionStorage.setItem(STORAGE_KEYS.CART_PROMO_SESSION, code)
   } catch {
     /* ignore */
   }
-}
-
-function promoLabel(code) {
-  if (code === CART_PROMO.ZEN10) return 'ZENSTYLE10 — 10% off'
-  if (code === CART_PROMO.ZEN20) return 'ZENSTYLE20 — 20% off'
-  return ''
 }
 
 export default function CartPage() {
@@ -46,6 +36,23 @@ export default function CartPage() {
   const [pendingPromo, setPendingPromo] = useState(readSessionPromo)
   const [appliedPromo, setAppliedPromo] = useState(readSessionPromo)
   const [promoMessage, setPromoMessage] = useState(null)
+  const [availablePromotions, setAvailablePromotions] = useState([])
+
+  useEffect(() => {
+    let mounted = true
+    businessApi
+      .promotions({ active: 1, per_page: 100 })
+      .then((res) => {
+        const list = res?.data?.data?.data || []
+        if (mounted) setAvailablePromotions(list)
+      })
+      .catch(() => {
+        /* ignore */
+      })
+    return () => {
+      mounted = false
+    }
+  }, [])
   const [checkoutOpen, setCheckoutOpen] = useState(false)
   const [checkoutSubmitting, setCheckoutSubmitting] = useState(false)
   const [checkoutError, setCheckoutError] = useState(null)
@@ -60,9 +67,9 @@ export default function CartPage() {
   useEffect(() => {
     if (items.length === 0) {
       queueMicrotask(() => {
-        setAppliedPromo(CART_PROMO.NONE)
-        setPendingPromo(CART_PROMO.NONE)
-        writeSessionPromo(CART_PROMO.NONE)
+        setAppliedPromo(null)
+        setPendingPromo(null)
+        writeSessionPromo(null)
         setPromoMessage(null)
       })
     }
@@ -72,8 +79,16 @@ export default function CartPage() {
     setShippingForm((prev) => ({ ...prev, name: user?.name || prev.name }))
   }, [user?.name])
 
-  const promoForTotals = items.length === 0 ? CART_PROMO.NONE : appliedPromo
-  const discountRate = getCartPromoDiscountRate(promoForTotals)
+  const promoForTotals = items.length === 0 ? null : appliedPromo
+  const promoPercentMap = useMemo(() => {
+    const m = {}
+    for (const p of availablePromotions) {
+      if (p && p.promotion_code) m[p.promotion_code.toLowerCase()] = Number(p.percent) || 0
+    }
+    return m
+  }, [availablePromotions])
+
+  const discountRate = promoForTotals && promoPercentMap[promoForTotals.toLowerCase()] ? promoPercentMap[promoForTotals.toLowerCase()] / 100 : 0
   const shipping = subtotal > 0 ? SHIPPING_FLAT : 0
   const discount = subtotal * discountRate
   const total = Math.max(0, subtotal + shipping - discount)
@@ -84,15 +99,23 @@ export default function CartPage() {
       notify.warning('Your cart is empty.')
       return
     }
-    if (pendingPromo === CART_PROMO.NONE) {
-      setAppliedPromo(CART_PROMO.NONE)
-      writeSessionPromo(CART_PROMO.NONE)
+    if (!pendingPromo) {
+      setAppliedPromo(null)
+      writeSessionPromo(null)
       notify.info('Promo code removed.')
       return
     }
+
+    // Basic client-side validation: ensure pendingPromo exists in fetched promotions
+    const found = availablePromotions.find((p) => p.promotion_code && p.promotion_code.toLowerCase() === pendingPromo.toLowerCase())
+    if (!found) {
+      setPromoMessage({ type: 'error', text: 'Promo code not found.' })
+      return
+    }
+
     setAppliedPromo(pendingPromo)
     writeSessionPromo(pendingPromo)
-    notify.success(`Applied: ${promoLabel(pendingPromo)}.`)
+    notify.success(`Applied: ${found.promotion_code} — ${found.percent}% off.`)
   }
 
   const handleQtyInput = (id, raw) => {
@@ -139,7 +162,7 @@ export default function CartPage() {
         product_id: Number(line.id),
         quantity: line.qty,
       })),
-      promo_code: appliedPromo === CART_PROMO.NONE ? null : appliedPromo,
+      promo_code: appliedPromo || null,
       payment_method: 'cod',
       shipping: {
         name: shippingForm.name.trim(),
@@ -155,9 +178,9 @@ export default function CartPage() {
       const order = res?.data?.data || null
       setCheckoutDone(order)
       clearCart()
-      setAppliedPromo(CART_PROMO.NONE)
-      setPendingPromo(CART_PROMO.NONE)
-      writeSessionPromo(CART_PROMO.NONE)
+      setAppliedPromo(null)
+      setPendingPromo(null)
+      writeSessionPromo(null)
       notify.success(`Order #${order?.shop_order_id} placed successfully! Total: $${Number(order?.total_amount || 0).toFixed(2)}`)
     } catch (err) {
       const msg =
@@ -251,8 +274,8 @@ export default function CartPage() {
               </div>
               <div className="zs-cart__row">
                 <span>
-                  {appliedPromo !== CART_PROMO.NONE && items.length > 0
-                    ? `Discount (${appliedPromo === CART_PROMO.ZEN10 ? '10%' : '20%'})`
+                  {appliedPromo && items.length > 0
+                    ? `Discount (${(promoPercentMap[appliedPromo.toLowerCase()] || 0)}%)`
                     : 'Discount'}
                 </span>
                 <span>-${discount.toFixed(2)}</span>
@@ -275,21 +298,29 @@ export default function CartPage() {
                 </label>
                 <select
                   id="zs-cart-promo-select"
-                  value={pendingPromo}
-                  onChange={(event) => setPendingPromo(event.target.value)}
+                    value={pendingPromo || ''}
+                    onChange={(event) => setPendingPromo(event.target.value || null)}
                 >
-                  <option value={CART_PROMO.NONE}>No code</option>
-                  <option value={CART_PROMO.ZEN10}>ZENSTYLE10 — 10% off</option>
-                  <option value={CART_PROMO.ZEN20}>ZENSTYLE20 — 20% off</option>
+                    <option value="">No code</option>
+                    {availablePromotions.map((p) => (
+                      <option key={p.promotion_id} value={p.promotion_code}>
+                        {`${p.promotion_code} — ${p.percent}% off`}
+                      </option>
+                    ))}
                 </select>
                 <button type="button" onClick={applyPromo}>
                   Apply
                 </button>
               </div>
-              {items.length > 0 && appliedPromo !== CART_PROMO.NONE && (
+              {items.length > 0 && appliedPromo && (
                 <p className="zs-cart__promo-active" role="status">
                   <span className="zs-cart__promo-applied-badge">Applied</span>
-                  <span className="zs-cart__promo-applied-detail">{promoLabel(appliedPromo)}</span>
+                  <span className="zs-cart__promo-applied-detail">
+                    {(() => {
+                      const found = availablePromotions.find((p) => p.promotion_code && p.promotion_code.toLowerCase() === appliedPromo.toLowerCase())
+                      return found ? `${found.promotion_code} — ${found.percent}% off` : appliedPromo
+                    })()}
+                  </span>
                 </p>
               )}
               {promoMessage && (

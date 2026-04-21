@@ -59,6 +59,7 @@ const businessApi = {
   checkoutCart: (payload) => axiosClient.post('/shop/checkout', payload),
   myShopOrders: () => axiosClient.get('/shop/orders'),
   shopOrderDetail: (id) => axiosClient.get(`/shop/orders/${id}`),
+  completeShopOrder: (id) => axiosClient.patch(`/shop/orders/${id}/complete`),
   notifications: () => axiosClient.get('/notifications'),
 };
 

@@ -16,6 +16,7 @@ const navSections = [
       { label: 'Staff', to: '/admin/staff', icon: 'user' },
       { label: 'Services', to: '/admin/services', icon: 'settings' },
       { label: 'Promotions', to: '/admin/promotions', icon: 'gift' },
+      { label: 'Orders', to: '/admin/orders', icon: 'receipt' },
       { label: 'Inventory', to: '/admin/inventory', icon: 'box' },
       { label: 'Suppliers', to: '/admin/suppliers', icon: 'truck' },
       { label: 'Feedbacks', to: '/admin/feedbacks', icon: 'chat' },

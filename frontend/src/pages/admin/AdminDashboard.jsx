@@ -11,37 +11,44 @@ import { formatDateTime } from '../../utils/dateTime'
 
 function IconCalendar() {
   return (
-    <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden>
-      <path
-        d="M7 2v3M17 2v3M4 7h16M5 9h14v10H5z"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.6"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
+    <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" aria-hidden>
+      <rect x="3" y="5" width="18" height="14" rx="2" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M8 3v4" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M16 3v4" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M3 10h18" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
     </svg>
   )
 }
 
 function IconWallet() {
   return (
-    <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden>
-      <path
-        d="M3 7h18a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H3z"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.6"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <path
-        d="M17 12h4"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.6"
-        strokeLinecap="round"
-      />
+    <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" aria-hidden>
+      <rect x="2" y="6" width="20" height="12" rx="2" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+      <rect x="16" y="9" width="4" height="4" rx="1" fill="none" stroke="currentColor" strokeWidth="1.6" />
+    </svg>
+  )
+}
+
+function IconUsers() {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" aria-hidden>
+      <g fill="currentColor">
+        <circle cx="7.5" cy="8" r="2.5" />
+        <circle cx="16.5" cy="8" r="2.5" />
+        <path d="M3 18c0-1.7 4-3 9-3s9 1.3 9 3v1H3v-1z" />
+      </g>
+    </svg>
+  )
+}
+
+function IconUserCheck() {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" aria-hidden>
+      <g fill="currentColor">
+        <circle cx="10" cy="8" r="3.5" />
+        <path d="M3 19c0-2 3.6-3.5 7-3.5s7 1.5 7 3.5v1H3v-1z" />
+        <path d="M17.5 10.5l1.8 1.8 3-3" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+      </g>
     </svg>
   )
 }
@@ -100,8 +107,8 @@ export default function AdminDashboard() {
             tone="success"
             icon={<IconWallet />}
           />
-          <StatCard title="Total Staff" value={String(metrics?.total_staff || 0)} delta="Active" tone="neutral" />
-          <StatCard title="Total Clients" value={String(metrics?.total_clients || 0)} delta="Registered" tone="accent" />
+          <StatCard title="Total Staff" value={String(metrics?.total_staff || 0)} delta="Active" tone="neutral" icon={<IconUsers />} />
+          <StatCard title="Total Clients" value={String(metrics?.total_clients || 0)} delta="Registered" tone="accent" icon={<IconUserCheck />} />
         </div>
       </Section>
       <div className="zs-dashboard__row">

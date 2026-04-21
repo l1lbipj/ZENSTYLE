@@ -98,6 +98,7 @@ Route::prefix('v1')->group(function () {
             Route::post('/checkout', [ShopOrderController::class, 'checkout']);
             Route::get('/orders', [ShopOrderController::class, 'index']);
             Route::get('/orders/{id}', [ShopOrderController::class, 'show'])->whereNumber('id');
+            Route::patch('/orders/{id}/complete', [ShopOrderController::class, 'complete'])->whereNumber('id');
         });
     });
 

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import CalendarView from '../../components/calendar/CalendarView'
 import businessApi from '../../Api/businessApi'
-import { formatDate, formatDateTime, formatTime } from '../../utils/dateTime'
+import { formatDate, formatFullDateTime, formatTime } from '../../utils/dateTime'
 import AttendancePanel from '../../components/staff/AttendancePanel'
 import styles from './StaffPages.module.css'
 
@@ -90,6 +90,12 @@ export default function StaffDashboard() {
   const canCheckIn = attendanceState === 'not_checked_in'
   const canCheckOut = attendanceState === 'checked_in'
 
+  const formatAttendanceTime = (value) => {
+    if (!value) return '--'
+    if (typeof value === 'string' && value.length > 8) return formatFullDateTime(value)
+    return formatTime(value)
+  }
+
   const historyRows = [...attendanceHistory].sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0))
   const attendanceTotalPages = Math.max(1, Math.ceil(historyRows.length / ATTENDANCE_PAGE_SIZE))
   const visibleAttendanceRows = historyRows.slice(
@@ -130,26 +136,26 @@ export default function StaffDashboard() {
         <section className={styles.panelGrid}>
           <div className={styles.card}>
             <h3 className={styles.cardTitle}>Schedule</h3>
-            <CalendarView title="Today's schedule" />
+            <CalendarView title="Today's schedule" busyItems={payload?.upcoming_tasks || []} />
           </div>
           <div className={styles.card}>
             <h3 className={styles.cardTitle}>Priority tasks</h3>
             <ul className={styles.list}>
               {(payload?.upcoming_tasks || []).slice(0, 5).map((task) => (
                 <li key={task.detail_id}>
-                  {(task.appointment?.client?.client_name || 'Client')} - {(task.item?.service_name || task.item?.product_name || 'Service')} ({formatDateTime(task.appointment?.appointment_date)})
+                  {(task.appointment?.client?.client_name || 'Client')} - {(task.item?.service_name || task.item?.product_name || 'Service')} ({formatFullDateTime(task.appointment?.appointment_date)})
                 </li>
               ))}
             </ul>
           </div>
         </section>
 
-        <AttendancePanel
+          <AttendancePanel
           todayTitle="Today attendance"
-          todayDescription={todayAttendance?.date ? formatDate(todayAttendance.date) : 'No schedule for today'}
-          todayStatus={attendanceState}
-          checkInText={formatTime(todayAttendance?.check_in)}
-          checkOutText={formatTime(todayAttendance?.check_out)}
+            todayDescription={todayAttendance?.date ? formatDate(todayAttendance.date) : 'No schedule for today'}
+            todayStatus={attendanceState}
+            checkInText={formatAttendanceTime(todayAttendance?.check_in)}
+            checkOutText={formatAttendanceTime(todayAttendance?.check_out)}
           canCheckIn={canCheckIn}
           canCheckOut={canCheckOut}
           attendanceLoading={attendanceLoading}
@@ -158,8 +164,8 @@ export default function StaffDashboard() {
           historyRows={visibleAttendanceRows.map((entry, index) => ({
             key: entry.attendance_id ?? entry.schedule_id ?? `${entry.date}-${index}`,
             date: formatDate(entry.date),
-            checkIn: formatTime(entry.check_in),
-            checkOut: formatTime(entry.check_out),
+              checkIn: formatAttendanceTime(entry.check_in),
+              checkOut: formatAttendanceTime(entry.check_out),
             status: entry.attendance_status || (entry.check_out ? 'present' : entry.check_in ? 'late' : 'absent'),
           }))}
           historyPage={attendancePage}

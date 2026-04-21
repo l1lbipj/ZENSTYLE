@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Http\Responses\ApiResponse;
 use App\Models\Product;
+use App\Models\Promotion;
 use App\Models\ShopOrder;
 use App\Models\ShopOrderItem;
 use Illuminate\Http\Request;
@@ -72,6 +73,28 @@ class ShopOrderController extends Controller
         return ApiResponse::success($order, 'Order retrieved.');
     }
 
+    public function complete(Request $request, int $id)
+    {
+        $abilities = $this->abilities($request);
+        if (! in_array('admin', $abilities, true)) {
+            return ApiResponse::error('Access denied.', 403, 'FORBIDDEN');
+        }
+
+        $order = ShopOrder::find($id);
+        if (! $order) {
+            return ApiResponse::error('Order not found.', 404, 'NOT_FOUND');
+        }
+
+        if ($order->status === 'paid') {
+            return ApiResponse::success($order, 'Order already completed.');
+        }
+
+        $order->status = 'paid';
+        $order->save();
+
+        return ApiResponse::success($order->fresh(), 'Order marked as completed.');
+    }
+
     public function checkout(Request $request)
     {
         if ($resp = $this->ensureClient($request)) {
@@ -100,8 +123,28 @@ class ShopOrderController extends Controller
 
         // Promo rules must be server-side (prevent tampering).
         $discountRate = 0.0;
-        if ($promoCode === 'zen10') $discountRate = 0.10;
-        if ($promoCode === 'zen20') $discountRate = 0.20;
+        $promotion = null;
+        if ($promoCode) {
+            $promotion = Promotion::whereRaw('LOWER(promotion_code) = ?', [$promoCode])->first();
+            if (! $promotion) {
+                return ApiResponse::error('Invalid promo code.', 422, 'INVALID_PROMO');
+            }
+
+            // Check expiration
+            if (strtotime($promotion->expiration_date) < strtotime(now()->toDateString())) {
+                return ApiResponse::error('Promo code expired.', 422, 'PROMO_EXPIRED');
+            }
+
+            // Check usage limit across appointments and shop orders
+            $usedInAppointments = DB::table('appointments')->where('promotion_id', $promotion->promotion_id)->count();
+            $usedInShopOrders = DB::table('shop_orders')->whereRaw('LOWER(promo_code) = ?', [$promoCode])->count();
+            $usedCount = $usedInAppointments + $usedInShopOrders;
+            if ($usedCount >= (int) $promotion->usage_limit) {
+                return ApiResponse::error('Promo code usage limit reached.', 422, 'PROMO_LIMIT_REACHED');
+            }
+
+            $discountRate = ((int) $promotion->percent) / 100.0;
+        }
 
         $shippingFee = 5.00; // keep in sync with frontend (CartPage)
 

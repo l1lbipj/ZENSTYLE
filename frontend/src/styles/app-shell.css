@@ -725,6 +725,10 @@
   border-radius: 999px;
   font-size: 0.75rem;
   font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  white-space: nowrap;
 }
 
 .zs-badge--success {
