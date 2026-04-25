@@ -13,7 +13,7 @@ export default function BookAppointmentPage() {
   const notify = useNotification()
   const [loading, setLoading] = useState(false)
   const [feedback, setFeedback] = useState(null)
-  const [serviceOptions, setServiceOptions] = useState([])
+const [serviceOptions, setServiceOptions] = useState([])
   const [staffOptions, setStaffOptions] = useState([])
   const [serviceDurationById, setServiceDurationById] = useState({})
 
@@ -35,7 +35,7 @@ export default function BookAppointmentPage() {
         setServiceOptions(
           services.map((item) => ({
             value: String(item.service_id),
-            label: `${item.service_name} (${formatUSD(item.price || 0, { from: 'VND' })})`,
+            label: `${item.service_name} (${formatUSD(item.price || 0, { from: 'USD' })})`,
           })),
         )
         setServiceDurationById(
@@ -76,12 +76,13 @@ export default function BookAppointmentPage() {
         const items = formData.services.map((serviceRow, index) => {
           const [h, m] = serviceRow.time.split(':').map((n) => Number(n))
           const duration = serviceDurationById[serviceRow.service] || 60
+          const startMinutes = h * 60 + m
           const endMinutes = h * 60 + m + duration
           if (Number.isNaN(h) || Number.isNaN(m)) {
             throw new Error(`Service #${index + 1} has an invalid start time.`)
           }
-          if (endMinutes > 24 * 60 - 1) {
-            throw new Error(`Service #${index + 1} ends after 11:59 PM. Please choose an earlier start time.`)
+          if (startMinutes < 7 * 60 || endMinutes > 22 * 60) {
+            throw new Error(`Service #${index + 1} must stay within business hours (07:00 AM - 10:00 PM).`)
           }
 
           const endHourText = `${String(Math.floor(endMinutes / 60)).padStart(2, '0')}:${String(endMinutes % 60).padStart(2, '0')}`
@@ -168,9 +169,6 @@ export default function BookAppointmentPage() {
             <Link className="zs-btn zs-btn--ghost zs-btn--sm" to="/client/appointments">
               Appointment history
             </Link>
-            <Link className="zs-btn zs-btn--ghost zs-btn--sm" to="/client/rewards">
-              Rewards
-            </Link>
           </div>
         </Card>
       </div>
@@ -181,6 +179,7 @@ export default function BookAppointmentPage() {
           loading={loading}
           serviceOptions={serviceOptions}
           staffOptions={staffOptions}
+          serviceDurationById={serviceDurationById}
         />
       </Section>
     </div>

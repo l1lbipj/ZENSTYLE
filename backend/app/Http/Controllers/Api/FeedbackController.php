@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Responses\ApiResponse;
 use App\Models\Appointment;
 use App\Models\Feedback;
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 
@@ -38,11 +39,22 @@ class FeedbackController extends Controller
                 'customer:client_id,client_name,email',
                 'staff:staff_id,staff_name',
                 'appointment:appointment_id,appointment_date,client_id',
-                'appointment.appointmentDetails:detail_id,appointment_id,item_type,item_id,service_id',
+                'appointment.appointmentDetails:detail_id,appointment_id,service_id,staff_id,start_time,end_time,status,price',
                 'appointment.appointmentDetails.service:service_id,service_name,duration',
-                'appointment.appointmentDetails.item',
             ])
             ->orderByDesc('created_at');
+    }
+
+    private function applyDateRange(Builder $query, ?string $from, ?string $to): void
+    {
+        if (! $from || ! $to) {
+            return;
+        }
+
+        $start = Carbon::createFromFormat('Y-m-d', $from)->startOfDay();
+        $end = Carbon::createFromFormat('Y-m-d', $to)->endOfDay();
+
+        $query->whereBetween('created_at', [$start, $end]);
     }
 
     private function mapServices($appointment): array
@@ -50,17 +62,12 @@ class FeedbackController extends Controller
         $serviceRows = [];
 
         foreach ($appointment?->appointmentDetails ?? [] as $detail) {
-            $isService = (string) $detail->item_type === 'service' || ! empty($detail->service_id);
-            if (! $isService) {
+            if (empty($detail->service_id)) {
                 continue;
             }
 
             $serviceModel = $detail->service;
-            if (! $serviceModel && (string) $detail->item_type === 'service') {
-                $serviceModel = $detail->item;
-            }
-
-            $serviceId = (int) ($serviceModel?->service_id ?? $detail->service_id ?? $detail->item_id ?? 0);
+            $serviceId = (int) ($serviceModel?->service_id ?? $detail->service_id ?? 0);
             if ($serviceId <= 0) {
                 continue;
             }
@@ -114,10 +121,7 @@ class FeedbackController extends Controller
     {
         $detail = $appointment->appointmentDetails()
             ->whereNotNull('staff_id')
-            ->where(function ($query) {
-                $query->where('item_type', 'service')
-                    ->orWhereNotNull('service_id');
-            })
+            ->whereNotNull('service_id')
             ->orderBy('detail_id')
             ->first(['staff_id']);
 
@@ -128,11 +132,24 @@ class FeedbackController extends Controller
     {
         $query = $this->baseQuery();
 
+        $validated = $request->validate([
+            'from_date' => ['nullable', 'date_format:Y-m-d'],
+            'to_date' => ['nullable', 'date_format:Y-m-d', 'after_or_equal:from_date'],
+            'from' => ['nullable', 'date_format:Y-m-d'],
+            'to' => ['nullable', 'date_format:Y-m-d', 'after_or_equal:from'],
+        ]);
+
+        $from = $validated['from_date'] ?? $validated['from'] ?? null;
+        $to = $validated['to_date'] ?? $validated['to'] ?? null;
+        $this->applyDateRange($query, $from, $to);
+
         if ($this->isClient($request)) {
-            $query->where('customer_id', $request->user()->getKey())
-                ->orWhereHas('appointment', function ($appointmentQuery) use ($request) {
-                    $appointmentQuery->where('client_id', $request->user()->getKey());
-                });
+            $query->where(function (Builder $builder) use ($request) {
+                $builder->where('customer_id', $request->user()->getKey())
+                    ->orWhereHas('appointment', function ($appointmentQuery) use ($request) {
+                        $appointmentQuery->where('client_id', $request->user()->getKey());
+                    });
+            });
         } elseif ($this->isStaff($request)) {
             $query->where('staff_id', $request->user()->getKey());
         } elseif (! $this->isAdmin($request)) {
@@ -151,7 +168,25 @@ class FeedbackController extends Controller
             return ApiResponse::error('Access denied.', 403, 'FORBIDDEN');
         }
 
-        $rows = $this->baseQuery()->get()->map(fn (Feedback $feedback) => $this->transform($feedback))->values();
+        $validated = $request->validate([
+            // Support both `from_date/to_date` (spec) and older/alternate `from/to`.
+            'from_date' => ['nullable', 'date_format:Y-m-d'],
+            'to_date' => ['nullable', 'date_format:Y-m-d', 'after_or_equal:from_date'],
+            'from' => ['nullable', 'date_format:Y-m-d'],
+            'to' => ['nullable', 'date_format:Y-m-d', 'after_or_equal:from'],
+        ]);
+
+        $from = $validated['from_date'] ?? $validated['from'] ?? null;
+        $to = $validated['to_date'] ?? $validated['to'] ?? null;
+
+        $query = $this->baseQuery();
+        if ($from && $to) {
+            $start = Carbon::createFromFormat('Y-m-d', $from)->startOfDay();
+            $end = Carbon::createFromFormat('Y-m-d', $to)->endOfDay();
+            $query->whereBetween('created_at', [$start, $end]);
+        }
+
+        $rows = $query->get()->map(fn (Feedback $feedback) => $this->transform($feedback))->values();
 
         return ApiResponse::success($rows, 'Admin feedback list retrieved.');
     }
@@ -162,8 +197,23 @@ class FeedbackController extends Controller
             return ApiResponse::error('Access denied.', 403, 'FORBIDDEN');
         }
 
-        $rows = $this->baseQuery()
+        $validated = $request->validate([
+            'from_date' => ['nullable', 'date_format:Y-m-d'],
+            'to_date' => ['nullable', 'date_format:Y-m-d', 'after_or_equal:from_date'],
+            'from' => ['nullable', 'date_format:Y-m-d'],
+            'to' => ['nullable', 'date_format:Y-m-d', 'after_or_equal:from'],
+        ]);
+
+        $from = $validated['from_date'] ?? $validated['from'] ?? null;
+        $to = $validated['to_date'] ?? $validated['to'] ?? null;
+
+        $query = $this->baseQuery()
             ->where('staff_id', $request->user()->getKey())
+            ;
+
+        $this->applyDateRange($query, $from, $to);
+
+        $rows = $query
             ->get()
             ->map(fn (Feedback $feedback) => $this->transform($feedback))
             ->values();
@@ -208,7 +258,7 @@ class FeedbackController extends Controller
         );
 
         return ApiResponse::success(
-            $this->transform($feedback->fresh(['customer', 'staff', 'appointment.appointmentDetails.service', 'appointment.appointmentDetails.item'])),
+            $this->transform($feedback->fresh(['customer', 'staff', 'appointment.appointmentDetails.service'])),
             'Feedback submitted.'
         );
     }
@@ -228,9 +278,8 @@ class FeedbackController extends Controller
             'customer:client_id,client_name,email',
             'staff:staff_id,staff_name',
             'appointment:appointment_id,appointment_date,client_id',
-            'appointment.appointmentDetails:detail_id,appointment_id,item_type,item_id,service_id',
+            'appointment.appointmentDetails:detail_id,appointment_id,service_id,staff_id,start_time,end_time,status,price',
             'appointment.appointmentDetails.service:service_id,service_name,duration',
-            'appointment.appointmentDetails.item',
         ])->find($id);
 
         if (! $feedback) {
@@ -251,9 +300,8 @@ class FeedbackController extends Controller
             'customer:client_id,client_name,email',
             'staff:staff_id,staff_name',
             'appointment:appointment_id,appointment_date,client_id',
-            'appointment.appointmentDetails:detail_id,appointment_id,item_type,item_id,service_id',
+            'appointment.appointmentDetails:detail_id,appointment_id,service_id,staff_id,start_time,end_time,status,price',
             'appointment.appointmentDetails.service:service_id,service_name,duration',
-            'appointment.appointmentDetails.item',
         ]);
 
         return ApiResponse::success($this->transform($freshFeedback), 'Feedback reply saved.');

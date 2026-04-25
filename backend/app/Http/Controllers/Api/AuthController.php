@@ -282,32 +282,30 @@ class AuthController extends Controller
         $email = strtolower(trim($validated['email']));
         $user = $this->resolveUserByEmail($email);
 
-        if (! $user) {
-            return ApiResponse::error('Email is not registered.', 404, 'EMAIL_NOT_FOUND');
+        if ($user) {
+            PasswordResetOtp::where('email', $email)->delete();
+
+            $otp = str_pad((string) random_int(0, 99999), 5, '0', STR_PAD_LEFT);
+            $expiresAt = now()->addMinutes(5);
+
+            PasswordResetOtp::create([
+                'email' => $email,
+                'otp_hash' => Hash::make($otp),
+                'expires_at' => $expiresAt,
+            ]);
+
+            $displayExpiry = $expiresAt->copy()->timezone(config('app.timezone'));
+            $displayExpiryText = $displayExpiry->format('d/m/Y H:i') . ' (UTC' . $displayExpiry->format('P') . ')';
+
+            Mail::to($email)->send(new PasswordResetOtpMail($otp, $displayExpiryText));
         }
-
-        PasswordResetOtp::where('email', $email)->delete();
-
-        $otp = str_pad((string) random_int(0, 99999), 5, '0', STR_PAD_LEFT);
-        $expiresAt = now()->addMinutes(5);
-
-        PasswordResetOtp::create([
-            'email' => $email,
-            'otp_hash' => Hash::make($otp),
-            'expires_at' => $expiresAt,
-        ]);
-
-        $displayExpiry = $expiresAt->copy()->timezone(config('app.timezone'));
-        $displayExpiryText = $displayExpiry->format('d/m/Y H:i') . ' (UTC' . $displayExpiry->format('P') . ')';
-
-        Mail::to($email)->send(new PasswordResetOtpMail($otp, $displayExpiryText));
 
         return ApiResponse::success(
             [
                 'email' => $email,
-                'expires_at' => $expiresAt->toISOString(),
+                'expires_at' => $user ? $expiresAt->toISOString() : now()->addMinutes(5)->toISOString(),
             ],
-            'OTP sent to your email.'
+            'If the email is registered, an OTP has been sent.'
         );
     }
 

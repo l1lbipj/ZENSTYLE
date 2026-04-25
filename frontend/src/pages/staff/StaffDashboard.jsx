@@ -1,4 +1,6 @@
-import { useCallback, useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import dayjs from 'dayjs'
 import CalendarView from '../../components/calendar/CalendarView'
 import businessApi from '../../Api/businessApi'
 import { formatDate, formatFullDateTime, formatTime } from '../../utils/dateTime'
@@ -15,6 +17,7 @@ export default function StaffDashboard() {
   const [todayAttendance, setTodayAttendance] = useState(null)
   const [attendanceHistory, setAttendanceHistory] = useState([])
   const [attendancePage, setAttendancePage] = useState(1)
+  const [todaySchedule, setTodaySchedule] = useState([])
 
   const normalizeAttendanceFromSchedule = (schedules) => {
     const today = schedules?.[0] || null
@@ -32,10 +35,12 @@ export default function StaffDashboard() {
     setLoading(true)
     setError('')
     try {
-      const [dashboardRes, todayRes, historyRes] = await Promise.allSettled([
+      const today = dayjs().format('YYYY-MM-DD')
+      const [dashboardRes, todayRes, historyRes, scheduleRes] = await Promise.allSettled([
         businessApi.dashboardStaff(),
         businessApi.staffAttendanceToday(),
         businessApi.staffAttendanceHistory({ per_page: 30 }),
+        businessApi.staffSchedule({ view: 'day', date: today }),
       ])
 
       const dashboardData = dashboardRes.status === 'fulfilled' ? dashboardRes.value?.data?.data || null : null
@@ -53,6 +58,12 @@ export default function StaffDashboard() {
           ? historyRes.value?.data?.data?.data || historyRes.value?.data?.data || []
           : dashboardData?.today_schedule || []
       setAttendanceHistory(Array.isArray(historyData) ? historyData : [])
+
+      const scheduleData =
+        scheduleRes.status === 'fulfilled'
+          ? scheduleRes.value?.data?.data?.appointments || []
+          : []
+      setTodaySchedule(Array.isArray(scheduleData) ? scheduleData : [])
     } catch (err) {
       setError(err?.response?.data?.message || 'Unable to load staff dashboard.')
     } finally {
@@ -103,6 +114,33 @@ export default function StaffDashboard() {
     attendancePage * ATTENDANCE_PAGE_SIZE,
   )
 
+  const getPriorityTone = (status) => {
+    const normalized = String(status || '').toLowerCase()
+    if (normalized === 'completed') return 'completed'
+    if (normalized === 'cancelled') return 'cancelled'
+    return 'scheduled'
+  }
+
+  const priorityTasks = useMemo(() => {
+    return [...todaySchedule].sort((a, b) => {
+      const aTime = `${a?.start_time || '23:59'}`
+      const bTime = `${b?.start_time || '23:59'}`
+      return aTime.localeCompare(bTime)
+    })
+  }, [todaySchedule])
+
+  const scheduleSummary = useMemo(() => {
+    return todaySchedule.reduce(
+      (acc, task) => {
+        const tone = getPriorityTone(task.status)
+        acc.total += 1
+        acc[tone] += 1
+        return acc
+      },
+      { total: 0, scheduled: 0, completed: 0, cancelled: 0 },
+    )
+  }, [todaySchedule])
+
   useEffect(() => {
     setAttendancePage(1)
   }, [attendanceHistory])
@@ -136,26 +174,48 @@ export default function StaffDashboard() {
         <section className={styles.panelGrid}>
           <div className={styles.card}>
             <h3 className={styles.cardTitle}>Schedule</h3>
-            <CalendarView title="Today's schedule" busyItems={payload?.upcoming_tasks || []} />
+            <CalendarView title="Today's schedule" busyItems={todaySchedule} />
+            <div className={styles.scheduleSummary}>
+              <span className={styles.scheduleSummaryItem}>Total: {scheduleSummary.total}</span>
+              <span className={`${styles.scheduleSummaryItem} ${styles.scheduled}`}>Scheduled: {scheduleSummary.scheduled}</span>
+              <span className={`${styles.scheduleSummaryItem} ${styles.completed}`}>Completed: {scheduleSummary.completed}</span>
+              <span className={`${styles.scheduleSummaryItem} ${styles.cancelled}`}>Cancelled: {scheduleSummary.cancelled}</span>
+            </div>
           </div>
           <div className={styles.card}>
             <h3 className={styles.cardTitle}>Priority tasks</h3>
-            <ul className={styles.list}>
-              {(payload?.upcoming_tasks || []).slice(0, 5).map((task) => (
-                <li key={task.detail_id}>
-                  {(task.appointment?.client?.client_name || 'Client')} - {(task.item?.service_name || task.item?.product_name || 'Service')} ({formatFullDateTime(task.appointment?.appointment_date)})
-                </li>
-              ))}
-            </ul>
+            {priorityTasks.length > 0 ? (
+              <ul className={styles.priorityList}>
+                {priorityTasks.slice(0, 3).map((task) => (
+                  <li key={task.appointment_id} className={styles.priorityItem}>
+                    <Link className={styles.priorityLink} to={`/staff/tasks?appointment_id=${task.appointment_id}`}>
+                      <div className={styles.priorityTopRow}>
+                        <strong className={styles.priorityTitle}>{task.service_name || 'Service'}</strong>
+                        <span className={`${styles.priorityBadge} ${styles[getPriorityTone(task.status)]}`}>
+                          {task.status || 'Scheduled'}
+                        </span>
+                      </div>
+                      <div className={styles.priorityMeta}>{task.customer_name || 'Client'}</div>
+                      <div className={styles.priorityMeta}>
+                        {formatTime(task.start_time)} - {formatTime(task.end_time)}
+                      </div>
+                      <div className={styles.priorityMeta}>{task.assigned_staff_name || 'Assigned staff'}</div>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className={styles.state}>No appointments scheduled for today.</p>
+            )}
           </div>
         </section>
 
-          <AttendancePanel
+        <AttendancePanel
           todayTitle="Today attendance"
-            todayDescription={todayAttendance?.date ? formatDate(todayAttendance.date) : 'No schedule for today'}
-            todayStatus={attendanceState}
-            checkInText={formatAttendanceTime(todayAttendance?.check_in)}
-            checkOutText={formatAttendanceTime(todayAttendance?.check_out)}
+          todayDescription={todayAttendance?.date ? formatDate(todayAttendance.date) : 'No schedule for today'}
+          todayStatus={attendanceState}
+          checkInText={formatAttendanceTime(todayAttendance?.check_in)}
+          checkOutText={formatAttendanceTime(todayAttendance?.check_out)}
           canCheckIn={canCheckIn}
           canCheckOut={canCheckOut}
           attendanceLoading={attendanceLoading}
@@ -164,8 +224,8 @@ export default function StaffDashboard() {
           historyRows={visibleAttendanceRows.map((entry, index) => ({
             key: entry.attendance_id ?? entry.schedule_id ?? `${entry.date}-${index}`,
             date: formatDate(entry.date),
-              checkIn: formatAttendanceTime(entry.check_in),
-              checkOut: formatAttendanceTime(entry.check_out),
+            checkIn: formatAttendanceTime(entry.check_in),
+            checkOut: formatAttendanceTime(entry.check_out),
             status: entry.attendance_status || (entry.check_out ? 'present' : entry.check_in ? 'late' : 'absent'),
           }))}
           historyPage={attendancePage}

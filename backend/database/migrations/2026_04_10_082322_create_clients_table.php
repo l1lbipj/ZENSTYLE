@@ -21,6 +21,7 @@ return new class extends Migration
             $table->enum('status',['active', 'inactive'])->default('active');
             $table->unsignedInteger('membership_point')->default(0);
             $table->enum('membership_tier',['bronze', 'silver', 'gold', 'platinum'])->default('bronze');
+            $table->json('allergy_preferences')->nullable();
             $table->timestamps();
         });
     }

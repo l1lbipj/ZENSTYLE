@@ -15,14 +15,18 @@ import ResetPasswordPage from './pages/ResetPasswordPage'
 // Admin pages
 import AdminDashboard from './pages/admin/AdminDashboard'
 import StaffManagementPage from './pages/admin/StaffManagementPage'
+import AdminProductsPage from './pages/admin/AdminProductsPage'
+import CategoryManagementPage from './pages/admin/CategoryManagementPage'
 import ServiceManagementPage from './pages/admin/ServiceManagementPage'
 import PromotionManagementPage from './pages/admin/PromotionManagementPage'
-import AdminOrdersPage from './pages/admin/AdminOrdersPage'
-import InventoryManagementPage from './pages/admin/InventoryManagementPage'
 import SupplierManagementPage from './pages/admin/SupplierManagementPage'
 import ReportsPage from './pages/admin/ReportsPage'
 import FeedbackManagementPage from './pages/admin/FeedbackManagementPage'
 import AdminProfilePage from './pages/admin/AdminProfilePage'
+import PerformancePage from './pages/admin/PerformancePage'
+import AllergyManagementPage from './pages/admin/AllergyManagementPage'
+import AdminOrdersPage from './pages/admin/AdminOrdersPage'
+import AdminAppointmentsPage from './pages/admin/AdminAppointmentsPage'
 
 // Staff pages
 import StaffDashboard from './pages/staff/StaffDashboard'
@@ -35,8 +39,8 @@ import StaffProfilePage from './pages/staff/StaffProfilePage'
 import ClientDashboard from './pages/client/ClientDashboard'
 import BookAppointmentPage from './pages/client/BookAppointmentPage'
 import ClientAppointmentsPage from './pages/client/ClientAppointmentsPage'
+import MyOrdersPage from './pages/client/MyOrdersPage'
 import ServiceHistoryPage from './pages/client/ServiceHistoryPage'
-import RewardsPage from './pages/client/RewardsPage'
 import FeedbackPage from './pages/client/FeedbackPage'
 import ClientProfilePage from './pages/client/ClientProfilePage'
 import UnifiedActivityPage from './pages/client/UnifiedActivityPage'
@@ -55,7 +59,6 @@ import ClientLayout from './layouts/ClientLayout'
 import AuthLayout from './layouts/AuthLayout'
 import RequireRoleRoute from './components/auth/RequireRoleRoute'
 import RequireAuth from './routes/RequireAuth'
-import NotificationsPage from './pages/notifications/NotificationsPage'
 import UserProfilePage from './pages/UserProfilePage'
 
 function App() {
@@ -89,15 +92,19 @@ function App() {
         <Route path="/admin" element={<RequireRoleRoute allow={['admin']}><AdminLayout /></RequireRoleRoute>}>
           <Route index element={<AdminDashboard />} />
           <Route path="profile" element={<AdminProfilePage />} />
+          <Route path="performance" element={<PerformancePage />} />
           <Route path="staff" element={<StaffManagementPage />} />
+          <Route path="allergies" element={<AllergyManagementPage />} />
+          <Route path="products" element={<AdminProductsPage />} />
+          <Route path="categories" element={<CategoryManagementPage />} />
+          <Route path="product-categories" element={<CategoryManagementPage />} />
           <Route path="services" element={<ServiceManagementPage />} />
           <Route path="promotions" element={<PromotionManagementPage />} />
-          <Route path="orders" element={<AdminOrdersPage />} />
-          <Route path="inventory" element={<InventoryManagementPage />} />
           <Route path="suppliers" element={<SupplierManagementPage />} />
+          <Route path="orders" element={<AdminOrdersPage />} />
+          <Route path="appointments" element={<AdminAppointmentsPage />} />
           <Route path="reports" element={<ReportsPage />} />
           <Route path="feedbacks" element={<FeedbackManagementPage />} />
-          <Route path="notifications" element={<NotificationsPage />} />
         </Route>
 
         {/* Staff layout */}
@@ -107,7 +114,6 @@ function App() {
           <Route path="tasks" element={<StaffTasksPage />} />
           <Route path="schedule" element={<StaffSchedulePage />} />
           <Route path="feedbacks" element={<StaffFeedbackPage />} />
-          <Route path="notifications" element={<NotificationsPage />} />
         </Route>
 
         {/* Client layout */}
@@ -116,8 +122,8 @@ function App() {
           <Route path="book" element={<BookAppointmentPage />} />
           <Route path="activities" element={<UnifiedActivityPage />} />
           <Route path="appointments" element={<ClientAppointmentsPage />} />
+          <Route path="orders" element={<MyOrdersPage />} />
           <Route path="history" element={<ServiceHistoryPage />} />
-          <Route path="rewards" element={<RewardsPage />} />
           <Route path="feedback" element={<FeedbackPage />} />
           <Route path="profile" element={<ClientProfilePage />} />
         </Route>

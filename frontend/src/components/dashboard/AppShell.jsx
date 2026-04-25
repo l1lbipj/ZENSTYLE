@@ -2,6 +2,7 @@ import { NavLink } from 'react-router-dom'
 import { useAuth } from '../../context/useAuth'
 import Button from '../ui/Button'
 import logo from '../../assets/logo.png'
+import ClientNotificationBell from '../notifications/ClientNotificationBell'
 
 function DefaultUserIcon() {
   return (
@@ -187,7 +188,10 @@ export default function AppShell({ title, navItems, navSections, children, welco
             <p className="zs-shell__welcome">{welcome || 'Welcome, ZenStyle Team'}</p>
             <h1>{title || 'Dashboard'}</h1>
           </div>
-          <span className="zs-shell__badge">{badgeLabel || title}</span>
+          <div className="zs-shell__header-actions">
+            {variant === 'client' ? <ClientNotificationBell /> : null}
+            <span className="zs-shell__badge">{badgeLabel || title}</span>
+          </div>
         </header>
         <main className="zs-shell__main">{children}</main>
       </div>

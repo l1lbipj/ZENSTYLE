@@ -3,7 +3,6 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\MorphMany;
 
 class Product extends Model
 {
@@ -13,6 +12,7 @@ class Product extends Model
     protected $fillable = [
         'product_name',
         'category',
+        'product_category_id',
         'description',
         'image_url',
         'image_data',
@@ -27,8 +27,8 @@ class Product extends Model
         return $this->hasMany(InventoryLog::class, 'product_id', 'product_id');
     }
 
-    public function appointmentDetails(): MorphMany
+    public function productCategory()
     {
-        return $this->morphMany(AppointmentDetail::class, 'item', 'item_type', 'item_id');
+        return $this->belongsTo(ProductCategory::class, 'product_category_id', 'product_category_id');
     }
 }

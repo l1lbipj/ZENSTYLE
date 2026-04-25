@@ -1,27 +1,50 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import Card from '../../components/ui/Card'
-import Input from '../../components/ui/Input'
-import Button from '../../components/ui/Button'
 import PageHeader from '../../components/ui/PageHeader'
 import Section from '../../components/ui/Section'
 import businessApi from '../../Api/businessApi'
 import { fileToDataUrl, getEntityImage } from '../../utils/imageDataUrl'
+import useFormDraft from '../../hooks/useFormDraft'
+import { FormActions, FormSection, InputField } from '../../components/forms/FormField'
+
+const initialForm = {
+  admin_name: '',
+  email: '',
+  phone: '',
+  dob: '',
+  image_data: '',
+}
+
+function validateAdmin(values) {
+  const errors = {}
+  const name = String(values.admin_name || '').trim()
+  const email = String(values.email || '').trim()
+  const phone = String(values.phone || '').trim()
+
+  if (!name) errors.admin_name = 'Full name is required.'
+  else if (name.length < 2) errors.admin_name = 'Full name must be at least 2 characters.'
+
+  if (!email) errors.email = 'Email is required.'
+  else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) errors.email = 'Enter a valid email address.'
+
+  if (phone && phone.replace(/[\s()+-]/g, '').length < 8) {
+    errors.phone = 'Phone number looks too short.'
+  }
+
+  return errors
+}
 
 export default function AdminProfilePage() {
-  const [form, setForm] = useState({
-    admin_name: '',
-    email: '',
-    phone: '',
-    dob: '',
-    image_data: '',
-  })
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState('')
   const [messageTone, setMessageTone] = useState('success')
-  const [loading, setLoading] = useState(true)
+  const form = useFormDraft(initialForm, validateAdmin)
+  const resetForm = form.reset
 
-  const displayName = useMemo(() => form.admin_name || 'ZenStyle admin', [form.admin_name])
-  const displayEmail = useMemo(() => form.email || 'No email provided', [form.email])
+  const displayName = useMemo(() => form.values.admin_name || 'ZenStyle admin', [form.values.admin_name])
+  const displayEmail = useMemo(() => form.values.email || 'No email provided', [form.values.email])
   const initials = useMemo(() => {
     return (
       displayName
@@ -32,7 +55,7 @@ export default function AdminProfilePage() {
         ?.join('') || 'AD'
     )
   }, [displayName])
-  const avatarUrl = useMemo(() => getEntityImage(form, null), [form])
+  const avatarUrl = useMemo(() => getEntityImage(form.values, null), [form.values])
 
   useEffect(() => {
     let mounted = true
@@ -42,7 +65,7 @@ export default function AdminProfilePage() {
       .then((response) => {
         if (!mounted) return
         const user = response?.data?.data?.user || {}
-        setForm({
+        resetForm({
           admin_name: user.admin_name || user.name || '',
           email: user.email || '',
           phone: user.phone || '',
@@ -63,7 +86,7 @@ export default function AdminProfilePage() {
     return () => {
       mounted = false
     }
-  }, [])
+  }, [resetForm])
 
   const handleImageChange = async (event) => {
     const file = event.target.files?.[0]
@@ -71,7 +94,7 @@ export default function AdminProfilePage() {
 
     try {
       const image_data = await fileToDataUrl(file)
-      setForm((prev) => ({ ...prev, image_data }))
+      form.setFieldValue('image_data', image_data)
       setMessage('')
     } catch (err) {
       setMessageTone('error')
@@ -84,26 +107,38 @@ export default function AdminProfilePage() {
   const handleSubmit = async (event) => {
     event.preventDefault()
     setMessage('')
-    setMessageTone('success')
 
-    if (!form.admin_name.trim()) {
-      setMessageTone('error')
-      setMessage('Name is required.')
+    const errors = form.validateAll()
+    if (Object.keys(errors).length > 0) return
+
+    if (!form.dirty) {
+      setMessageTone('success')
+      setMessage('No changes to save.')
       return
     }
 
+    setSaving(true)
     try {
       await businessApi.updateMyProfile({
-        admin_name: form.admin_name.trim(),
-        phone: form.phone.trim() || null,
-        dob: form.dob || null,
-        image_data: form.image_data || null,
+        admin_name: form.values.admin_name.trim(),
+        phone: form.values.phone.trim() || null,
+        dob: form.values.dob || null,
+        image_data: form.values.image_data || null,
+      })
+      form.reset({
+        admin_name: form.values.admin_name.trim(),
+        email: form.values.email.trim(),
+        phone: form.values.phone.trim(),
+        dob: form.values.dob || '',
+        image_data: form.values.image_data || '',
       })
       setMessageTone('success')
       setMessage('Profile updated successfully.')
     } catch (err) {
       setMessageTone('error')
       setMessage(err?.response?.data?.message || 'Failed to update profile.')
+    } finally {
+      setSaving(false)
     }
   }
 
@@ -134,7 +169,7 @@ export default function AdminProfilePage() {
             <div>
               <h3 style={{ margin: 0 }}>{displayName}</h3>
               <p className="zs-card__description">{displayEmail}</p>
-              <p className="zs-card__description">{form.phone || 'No phone number yet'}</p>
+              <p className="zs-card__description">{form.values.phone || 'No phone number yet'}</p>
             </div>
           </div>
         </Card>
@@ -158,25 +193,62 @@ export default function AdminProfilePage() {
         {loading ? <p className="zs-card__description">Loading profile...</p> : null}
         {!loading ? (
           <form className="zs-form" onSubmit={handleSubmit}>
-            <div className="zs-profile__grid">
-              <Input label="Full name" value={form.admin_name} onChange={(e) => setForm((prev) => ({ ...prev, admin_name: e.target.value }))} />
-              <Input label="Email" type="email" value={form.email} onChange={(e) => setForm((prev) => ({ ...prev, email: e.target.value }))} />
-              <Input label="Phone" type="tel" value={form.phone} onChange={(e) => setForm((prev) => ({ ...prev, phone: e.target.value }))} />
-              <Input label="Date of birth" type="date" value={form.dob} onChange={(e) => setForm((prev) => ({ ...prev, dob: e.target.value }))} />
-            </div>
-            <label className="zs-field">
-              <span className="zs-field__label">Profile image</span>
-              <input className="zs-input" type="file" accept="image/png,image/jpeg,image/jpg,image/webp,image/gif" onChange={handleImageChange} />
-              <span className="zs-field__hint">Choose a clear photo so your account feels more personal.</span>
-            </label>
-            <div className="zs-action-row">
-              <Button type="submit">Save changes</Button>
-              {form.image_data ? (
-                <Button type="button" variant="ghost" onClick={() => setForm((prev) => ({ ...prev, image_data: '' }))}>
+            <FormSection title="Basic information" description="Use your real name and contact details for a clean account profile.">
+              <div className="zs-profile__grid">
+                <InputField
+                  label="Full name"
+                  required
+                  placeholder="Michael Brown"
+                  {...form.bindInput('admin_name')}
+                  error={form.touched.admin_name ? form.errors.admin_name : ''}
+                />
+                <InputField
+                  label="Email"
+                  required
+                  type="email"
+                  placeholder="michael@zenstyle.com"
+                  {...form.bindInput('email')}
+                  error={form.touched.email ? form.errors.email : ''}
+                />
+                <InputField
+                  label="Phone"
+                  type="tel"
+                  placeholder="(555) 123-4567"
+                  {...form.bindInput('phone')}
+                  error={form.touched.phone ? form.errors.phone : ''}
+                />
+                <InputField
+                  label="Date of birth"
+                  type="date"
+                  {...form.bindInput('dob')}
+                />
+              </div>
+            </FormSection>
+
+            <FormSection title="Media" description="Use a clear profile photo so your account feels more personal.">
+              <label className="zs-field">
+                <span className="zs-field__label">Profile image</span>
+                <input className="zs-input" type="file" accept="image/png,image/jpeg,image/jpg,image/webp,image/gif" onChange={handleImageChange} />
+                <span className="zs-field__hint">Recommended: square image, at least 512px.</span>
+              </label>
+              {form.values.image_data ? (
+                <button
+                  type="button"
+                  className="zs-btn zs-btn--ghost zs-btn--sm"
+                  onClick={() => form.setFieldValue('image_data', '')}
+                >
                   Remove image
-                </Button>
+                </button>
               ) : null}
-            </div>
+            </FormSection>
+
+            <FormActions
+              primaryLabel={saving ? 'Saving...' : 'Save Changes'}
+              onSecondary={() => resetForm()}
+              secondaryLabel="Reset"
+              primaryProps={{ disabled: saving || !form.dirty || form.hasErrors }}
+              secondaryProps={{ disabled: saving || !form.dirty }}
+            />
           </form>
         ) : null}
       </Section>

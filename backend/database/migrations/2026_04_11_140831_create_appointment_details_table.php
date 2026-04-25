@@ -26,7 +26,7 @@ return new class extends Migration
             $table->enum('status',['active', 'inactive'])->default('active');
             $table->timestamps();
         });
-        DB::statement('ALTER TABLE appointment_details ADD CONSTRAINT check_quantity CHECK (quantity > 0)');
+        DB::statement('ALTER TABLE appointment_details ADD CONSTRAINT chk_appointment_details_quantity CHECK (quantity > 0)');
         DB::statement('ALTER TABLE appointment_details ADD CONSTRAINT check_total_price CHECK (total_price > 0)');
         DB::statement('ALTER TABLE appointment_details ADD CONSTRAINT check_time_range CHECK (start_time < end_time)');
         DB::statement('ALTER TABLE appointment_details ADD CONSTRAINT check_item_reference CHECK (service_id IS NOT NULL OR product_id IS NOT NULL)');

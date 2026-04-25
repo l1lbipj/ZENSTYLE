@@ -3,7 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\MorphMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Service extends Model
 {
@@ -18,9 +18,9 @@ class Service extends Model
         'category_id'
     ];
 
-    public function appointmentDetails(): MorphMany
+    public function appointmentDetails(): HasMany
     {
-        return $this->morphMany(AppointmentDetail::class, 'item', 'item_type', 'item_id');
+        return $this->hasMany(AppointmentDetail::class, 'service_id', 'service_id');
     }
 
     public function category()

@@ -17,6 +17,8 @@ return new class extends Migration
             $table->unsignedTinyInteger('rating');
             $table->text('notes')->nullable();
             $table->timestamps();
+
+            $table->index('created_at');
         });
     }
 

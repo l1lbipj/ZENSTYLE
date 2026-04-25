@@ -1,0 +1,179 @@
+.zs-form-section {
+  background: var(--zs-surface);
+  border: 1px solid var(--zs-border);
+  border-radius: 18px;
+  box-shadow: var(--zs-shadow);
+  padding: 1.25rem;
+  display: grid;
+  gap: 1rem;
+}
+
+.zs-form-section__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+}
+
+.zs-form-section__header h3 {
+  margin: 0;
+  font-family: var(--font-heading);
+  font-size: 1.05rem;
+}
+
+.zs-form-section__header p {
+  margin: 0.35rem 0 0;
+  color: var(--zs-ink-muted);
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+
+.zs-form-section__body {
+  display: grid;
+  gap: 1rem;
+}
+
+.zs-field {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.zs-field__head {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.zs-field__label {
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: #2b342f;
+}
+
+.zs-field__required {
+  color: #c03636;
+  font-weight: 800;
+}
+
+.zs-field__hint {
+  font-size: 0.8rem;
+  color: #6d746f;
+  line-height: 1.4;
+}
+
+.zs-field__error {
+  font-size: 0.8rem;
+  color: #b42318;
+  line-height: 1.4;
+}
+
+.zs-input,
+.zs-select,
+.zs-textarea {
+  width: 100%;
+  border: 1px solid #d9ddda;
+  border-radius: 14px;
+  background: #ffffff;
+  color: #1f2420;
+  padding: 0.78rem 0.9rem;
+  font-family: var(--font-body);
+  transition: border-color 0.18s ease, box-shadow 0.18s ease, transform 0.12s ease;
+}
+
+.zs-textarea {
+  resize: vertical;
+  min-height: 120px;
+}
+
+.zs-input:focus,
+.zs-select:focus,
+.zs-textarea:focus {
+  outline: none;
+  border-color: #a98b3f;
+  box-shadow: 0 0 0 4px rgba(201, 168, 79, 0.16);
+}
+
+.zs-input.is-invalid,
+.zs-select.is-invalid,
+.zs-textarea.is-invalid {
+  border-color: #cf3e3e;
+  box-shadow: 0 0 0 4px rgba(207, 62, 62, 0.1);
+}
+
+.zs-input:disabled,
+.zs-select:disabled,
+.zs-textarea:disabled,
+.zs-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+.zs-form-actions {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.zs-form-actions--end {
+  justify-content: flex-end;
+}
+
+.zs-checkbox-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 0.75rem;
+}
+
+.zs-choice-card {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  padding: 0.9rem 1rem;
+  border: 1px solid #dde2dd;
+  border-radius: 16px;
+  background: #fff;
+  cursor: pointer;
+  transition: border-color 0.16s ease, transform 0.16s ease, box-shadow 0.16s ease, background 0.16s ease;
+}
+
+.zs-choice-card input {
+  margin: 0;
+}
+
+.zs-choice-card span {
+  display: grid;
+  gap: 0.12rem;
+}
+
+.zs-choice-card small {
+  color: #67706b;
+  line-height: 1.35;
+}
+
+.zs-choice-card.is-active {
+  border-color: rgba(201, 168, 79, 0.7);
+  background: rgba(201, 168, 79, 0.1);
+  box-shadow: 0 12px 24px rgba(201, 168, 79, 0.08);
+}
+
+.zs-choice-card:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 10px 18px rgba(61, 47, 27, 0.08);
+}
+
+.zs-choice-card:focus-within {
+  border-color: #a98b3f;
+  box-shadow: 0 0 0 4px rgba(201, 168, 79, 0.16);
+}
+
+.zs-confirm-modal {
+  display: grid;
+  gap: 1rem;
+}
+
+.zs-confirm-modal__message {
+  margin: 0;
+  color: #3d4640;
+  line-height: 1.55;
+}

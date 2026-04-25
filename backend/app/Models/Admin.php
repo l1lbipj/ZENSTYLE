@@ -17,8 +17,13 @@ class Admin extends Authenticatable
     protected $fillable = [
         'admin_name',
         'email',
+        'phone',
+        'dob',
         'password',
         'status',
+    ];
+    protected $casts = [
+        'dob' => 'date',
     ];
     protected $hidden = [
         'password',

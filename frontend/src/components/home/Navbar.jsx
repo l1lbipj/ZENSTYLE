@@ -1,8 +1,10 @@
-import { Link, useNavigate } from 'react-router-dom'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import logo from '../../assets/logo.png'
 import { useAuth } from '../../context/useAuth'
 import { useCart } from '../../context/useCart'
 import { getRoleRedirectPath } from '../../routes/roleRedirect'
+import businessApi from '../../Api/businessApi'
 
 function IconUser() {
   return (
@@ -47,10 +49,29 @@ function IconBell() {
   )
 }
 
+function formatNotificationTime(value) {
+  if (!value) return ''
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return ''
+  return date.toLocaleString([], {
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  })
+}
+
 export default function Navbar() {
   const { user, logout } = useAuth()
   const { totalQuantity } = useCart()
   const navigate = useNavigate()
+  const location = useLocation()
+  const panelRef = useRef(null)
+  const [notificationsOpen, setNotificationsOpen] = useState(false)
+  const [notifications, setNotifications] = useState([])
+  const [unreadCount, setUnreadCount] = useState(0)
+  const [notificationsLoading, setNotificationsLoading] = useState(false)
+
   const dashboardPath = user ? (user.role === 'client' ? '/client' : getRoleRedirectPath(user.role)) : '/login'
   const profilePath = user
     ? user.role === 'client'
@@ -63,29 +84,79 @@ export default function Navbar() {
     : '/login'
   const cartLabel =
     totalQuantity > 0 ? `Shopping cart, ${totalQuantity} items` : 'Shopping cart, empty'
+  const showNotifications = user?.role === 'client' && location.pathname === '/'
+
+  const loadNotifications = useCallback(async () => {
+    if (!showNotifications) return
+    setNotificationsLoading(true)
+    try {
+      const res = await businessApi.clientNotifications()
+      const payload = res?.data?.data || {}
+      setNotifications(Array.isArray(payload.notifications) ? payload.notifications : [])
+      setUnreadCount(Number(payload.unread_count || 0))
+    } catch {
+      setNotifications([])
+      setUnreadCount(0)
+    } finally {
+      setNotificationsLoading(false)
+    }
+  }, [showNotifications])
+
+  useEffect(() => {
+    if (!showNotifications) {
+      setNotificationsOpen(false)
+      setNotifications([])
+      setUnreadCount(0)
+      return
+    }
+
+    loadNotifications()
+  }, [showNotifications, user?.id, loadNotifications])
+
+  useEffect(() => {
+    if (!showNotifications) return undefined
+
+    const intervalId = window.setInterval(() => {
+      loadNotifications()
+    }, 5 * 60 * 1000)
+
+    return () => window.clearInterval(intervalId)
+  }, [showNotifications, loadNotifications])
+
+  useEffect(() => {
+    if (!notificationsOpen) return undefined
+
+    const handleClickOutside = (event) => {
+      if (panelRef.current && !panelRef.current.contains(event.target)) {
+        setNotificationsOpen(false)
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [notificationsOpen])
 
   const handleLogout = async () => {
     await logout()
     navigate('/', { replace: true })
   }
 
-  const handleNotifications = () => {
-    if (!user) {
-      navigate('/login')
-      return
+  const handleNotifications = async () => {
+    if (!showNotifications) return
+    const nextOpen = !notificationsOpen
+    setNotificationsOpen(nextOpen)
+    if (nextOpen) {
+      await loadNotifications()
     }
+  }
 
-    if (user.role === 'staff') {
-      navigate('/staff/notifications')
-      return
+  const markNotificationRead = async (notificationId) => {
+    try {
+      await businessApi.markClientNotificationRead(notificationId)
+      await loadNotifications()
+    } catch {
+      /* keep the UI quiet; it will refresh on next open */
     }
-
-    if (user.role === 'admin') {
-      navigate('/admin/notifications')
-      return
-    }
-
-    navigate('/client/activities')
   }
 
   return (
@@ -105,14 +176,54 @@ export default function Navbar() {
           <a href="/#contact">Contact</a>
         </nav>
 
-        <div className="zs-nav__actions">
+        <div className="zs-nav__actions" ref={panelRef}>
           <Link to="/cart" className="zs-nav__icon-btn zs-nav__cart" aria-label={cartLabel}>
             <IconCart />
             {totalQuantity > 0 && <span className="zs-nav__badge">{totalQuantity > 99 ? '99+' : totalQuantity}</span>}
           </Link>
-          <button type="button" className="zs-nav__icon-btn" aria-label="Notifications" onClick={handleNotifications}>
-            <IconBell />
-          </button>
+          {showNotifications ? (
+            <div className="zs-nav__notifications">
+              <button
+                type="button"
+                className="zs-nav__icon-btn zs-nav__icon-btn--notifications"
+                aria-label={unreadCount > 0 ? `${unreadCount} unread notifications` : 'Notifications'}
+                aria-expanded={notificationsOpen}
+                aria-haspopup="menu"
+                onClick={handleNotifications}
+              >
+                <IconBell />
+                {unreadCount > 0 ? <span className="zs-nav__dot" aria-hidden="true" /> : null}
+              </button>
+              {notificationsOpen ? (
+                <div className="zs-nav__panel" role="menu" aria-label="Notifications">
+                  <div className="zs-nav__panel-head">
+                    <strong>Notifications</strong>
+                    <span>{unreadCount > 0 ? `${unreadCount} unread` : 'All read'}</span>
+                  </div>
+                  <div className="zs-nav__panel-body">
+                    {notificationsLoading ? (
+                      <p className="zs-nav__panel-empty">Loading notifications...</p>
+                    ) : notifications.length === 0 ? (
+                      <p className="zs-nav__panel-empty">No notifications yet.</p>
+                    ) : (
+                      notifications.map((notification) => (
+                        <button
+                          key={notification.id}
+                          type="button"
+                          className={`zs-nav__notification ${notification.is_read ? '' : 'is-unread'}`.trim()}
+                          onClick={() => markNotificationRead(notification.id)}
+                        >
+                          <span className="zs-nav__notification-title">{notification.title}</span>
+                          <span className="zs-nav__notification-message">{notification.short_message || notification.message}</span>
+                          <span className="zs-nav__notification-time">{formatNotificationTime(notification.created_at)}</span>
+                        </button>
+                      ))
+                    )}
+                  </div>
+                </div>
+              ) : null}
+            </div>
+          ) : null}
           {user ? (
             <>
               <Link to={profilePath} className="zs-nav__icon-btn" aria-label="User profile">

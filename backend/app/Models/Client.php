@@ -24,10 +24,16 @@ class Client extends Authenticatable
         'status',
         'membership_point',
         'membership_tier',
+        'allergy_preferences',
     ];
 
     protected $hidden = [
         'password',
+    ];
+
+    protected $casts = [
+        'allergy_preferences' => 'array',
+        'dob' => 'date',
     ];
 
     public function appointments()
@@ -54,7 +60,7 @@ class Client extends Authenticatable
 
     public function clientProductPreferences()
     {
-        return $this->hasMany(ClientProductReference::class, 'client_id', 'client_id');
+        return $this->hasMany(ClientProductPreference::class, 'client_id', 'client_id');
     }
 
     public function clientStaffPreferences()

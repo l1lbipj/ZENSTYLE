@@ -15,7 +15,20 @@ class ClientController extends Controller
 {
     private function abilities(Request $request): array
     {
-        return $request->user()?->currentAccessToken()?->abilities ?? [];
+        $abilities = $request->user()?->currentAccessToken()?->abilities ?? [];
+        if ($abilities !== []) {
+            return $abilities;
+        }
+
+        $user = $request->user();
+        if ($user instanceof \App\Models\Admin) {
+            return ['admin'];
+        }
+        if ($user instanceof \App\Models\Client) {
+            return ['client'];
+        }
+
+        return [];
     }
 
     public function index(Request $request)
@@ -118,7 +131,6 @@ class ClientController extends Controller
 
         $data = $request->validated();
         $allergyIds = $data['allergy_ids'] ?? [];
-        $customAllergies = $data['custom_allergies'] ?? [];
         $hasAllergyPayload = $request->exists('allergy_ids') || $request->exists('custom_allergies');
         unset($data['allergy_ids'], $data['custom_allergies']);
 
@@ -131,7 +143,7 @@ class ClientController extends Controller
         $client->update($data);
 
         if ($hasAllergyPayload) {
-            $clientAllergySync->sync($client, $allergyIds, $customAllergies);
+            $clientAllergySync->sync($client, $allergyIds);
         }
 
         return ApiResponse::success(

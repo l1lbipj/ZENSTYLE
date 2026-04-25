@@ -1,20 +1,10 @@
 function readVndPerUsd() {
-  const raw = import.meta?.env?.VITE_VND_PER_USD
-  const parsed = Number(raw)
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : 25000
+  return 1
 }
 
 export function convertVNDToUSD(vnd) {
   const n = Number(vnd)
   if (!Number.isFinite(n)) return NaN
-
-  // Heuristic: if backend values are already in "USD-like" units (e.g. 35.00),
-  // converting by VND/USD would incorrectly produce $0.00. Treat small numbers
-  // as USD already.
-  if (n !== 0 && Math.abs(n) < 1000) {
-    return n
-  }
-
   return n / readVndPerUsd()
 }
 

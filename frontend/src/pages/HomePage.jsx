@@ -29,7 +29,7 @@ export default function HomePage() {
                 <p className="zs-home-account__eyebrow">My account</p>
                 <h2 className="zs-home-account__title">Welcome back, {user.name || 'client'}</h2>
                 <p className="zs-home-account__desc">
-                  Go straight to your profile, appointments, and rewards without searching through the site.
+                  Go straight to your profile, appointments, and activity history without searching through the site.
                 </p>
               </div>
               <div className="zs-home-account__actions">
@@ -39,8 +39,8 @@ export default function HomePage() {
                 <Link className="zs-btn zs-btn--ghost zs-btn--sm" to="/client/appointments">
                   My appointments
                 </Link>
-                <Link className="zs-btn zs-btn--ghost zs-btn--sm" to="/client/rewards">
-                  Rewards
+                <Link className="zs-btn zs-btn--ghost zs-btn--sm" to="/client/activities">
+                  Activity history
                 </Link>
               </div>
             </div>

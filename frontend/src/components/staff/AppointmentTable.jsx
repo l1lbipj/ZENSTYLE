@@ -3,6 +3,7 @@ import styles from './AppointmentTable.module.css'
 function badgeClass(status) {
   if (status === 'completed') return `${styles.badge} ${styles.completed}`
   if (status === 'cancelled') return `${styles.badge} ${styles.cancelled}`
+  if (status === 'in_progress') return `${styles.badge} ${styles.in_progress}`
   return `${styles.badge} ${styles.pending}`
 }
 

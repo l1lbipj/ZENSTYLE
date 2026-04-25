@@ -14,6 +14,15 @@ class PurchaseOrder extends Model
         'order_date',
         'total_amount',
         'status',
+        'reference_code',
+        'workflow_status',
+        'received_at',
+        'notes',
+    ];
+
+    protected $casts = [
+        'order_date' => 'date',
+        'received_at' => 'datetime',
     ];
 
     public function supplier()

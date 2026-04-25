@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import Badge from '../../components/ui/Badge'
 import Card from '../../components/ui/Card'
@@ -13,10 +13,7 @@ function getAppointmentPresentation(item) {
   const details = item.appointment_details || item.appointmentDetails || []
   const firstDetail = details[0]
   const serviceName =
-    firstDetail?.item?.service_name ||
     firstDetail?.service?.service_name ||
-    firstDetail?.item?.product_name ||
-    firstDetail?.product?.product_name ||
     'Service'
   const staffName = firstDetail?.staff?.staff_name || 'TBD'
   const appointmentTime = new Date(item.appointment_date)
@@ -26,6 +23,7 @@ function getAppointmentPresentation(item) {
   return {
     id: item.appointment_id,
     type: 'appointment',
+    timestamp: new Date(item.appointment_date || item.created_at || Date.now()).getTime(),
     serviceName,
     staffName,
     timeLabel: formatDateTime(item.appointment_date),
@@ -37,44 +35,45 @@ function getAppointmentPresentation(item) {
   }
 }
 
-function getOrderPresentation(item) {
-  const itemCount = (item.items || item.shop_order_items || []).length
-  const orderTime = new Date(item.created_at || new Date())
-  const isRecent = (Date.now() - orderTime.getTime()) < 30 * 24 * 60 * 60 * 1000
+function getAppointmentOrderPresentation(item) {
+  const orderTime = new Date(item.payment_date || item.updated_at || item.created_at || Date.now())
+  const status = String(item.payment_status || 'Pending')
+  const invoiceType = String(item.invoice_type || 'appointment_order')
 
   return {
-    id: item.shop_order_id,
-    type: 'order',
-    serviceName: `Order #${item.shop_order_id}`,
-    staffName: `${itemCount} item${itemCount !== 1 ? 's' : ''}`,
-    timeLabel: formatDateTime(item.created_at || new Date()),
+    id: item.invoice_id,
+    type: 'appointment_order',
+    timestamp: orderTime.getTime(),
+    serviceName: item.item_name || `Appointment order #${item.invoice_id}`,
+    staffName: invoiceType === 'appointment_order' ? 'Appointment invoice' : 'Service invoice',
+    timeLabel: formatDateTime(item.payment_date || item.updated_at || item.created_at || new Date()),
     amount: Number(item.total_amount || 0),
-    paymentStatus: item.payment_method || 'cod',
+    paymentStatus: item.payment_method || 'cash',
     canReschedule: false,
-    tone: isRecent ? 'accent' : 'success',
-    label: item.status || 'Pending',
+    tone: String(status).toLowerCase() === 'paid' ? 'success' : String(status).toLowerCase() === 'pending' ? 'warning' : 'neutral',
+    label: invoiceType === 'appointment_order' ? 'Appointment order' : invoiceType,
   }
 }
 
 export default function ClientDashboard() {
   const notify = useNotification()
   const [appointments, setAppointments] = useState([])
-  const [orders, setOrders] = useState([])
+  const [appointmentOrders, setAppointmentOrders] = useState([])
   const [error, setError] = useState('')
   const [rescheduleValues, setRescheduleValues] = useState({})
   const [loading, setLoading] = useState(true)
 
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     setLoading(true)
     setError('')
     try {
-      const [appointmentsRes, ordersRes] = await Promise.all([
+      const [appointmentsRes, paymentsRes] = await Promise.all([
         businessApi.appointments({ per_page: 50 }),
-        businessApi.myShopOrders(),
+        businessApi.clientPayments({}),
       ])
 
       setAppointments(appointmentsRes?.data?.data?.data || [])
-      setOrders(ordersRes?.data?.data || [])
+      setAppointmentOrders((paymentsRes?.data?.data || []).filter((row) => row.invoice_type === 'appointment_order'))
     } catch (err) {
       const msg = err?.response?.data?.message || 'Failed to load data.'
       setError(msg)
@@ -82,11 +81,11 @@ export default function ClientDashboard() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [notify])
 
   useEffect(() => {
     loadData()
-  }, [])
+  }, [loadData])
 
   const mappedAppointments = useMemo(
     () => appointments.map((item) => getAppointmentPresentation(item)),
@@ -94,15 +93,13 @@ export default function ClientDashboard() {
   )
   
   const mappedOrders = useMemo(
-    () => orders.map((item) => getOrderPresentation(item)),
-    [orders],
+    () => appointmentOrders.map((item) => getAppointmentOrderPresentation(item)),
+    [appointmentOrders],
   )
 
   const allActivities = useMemo(
     () => [...mappedAppointments, ...mappedOrders].sort((a, b) => {
-      const aTime = new Date(a.timeLabel).getTime()
-      const bTime = new Date(b.timeLabel).getTime()
-      return bTime - aTime
+      return (b.timestamp || 0) - (a.timestamp || 0)
     }),
     [mappedAppointments, mappedOrders],
   )
@@ -142,14 +139,14 @@ export default function ClientDashboard() {
     <div className="zs-dashboard">
       <PageHeader
         title="My services & orders"
-        subtitle="Track your appointments, product orders, and manage your bookings all in one place."
+        subtitle="Track your appointments and appointment-order history in one place."
         action={
           <div className="zs-action-row">
             <Link className="zs-btn zs-btn--primary zs-btn--sm" to="/client/book">
               Book appointment
             </Link>
-            <Link className="zs-btn zs-btn--ghost zs-btn--sm" to="/products">
-              Shop products
+            <Link className="zs-btn zs-btn--ghost zs-btn--sm" to="/client/history">
+              View history
             </Link>
           </div>
         }
@@ -161,31 +158,28 @@ export default function ClientDashboard() {
         <Card title="Upcoming appointments" description="Visits you have scheduled.">
           <h3 style={{ margin: 0 }}>{upcomingAppointments.length}</h3>
         </Card>
-        <Card title="Product orders" description="Your recent purchases and deliveries.">
-          <h3 style={{ margin: 0 }}>{orders.length}</h3>
+        <Card title="Appointment orders" description="Your recent paid appointment invoices.">
+          <h3 style={{ margin: 0 }}>{appointmentOrders.length}</h3>
         </Card>
-        <Card title="Total spent" description="Combined appointments and orders.">
+        <Card title="Total spent" description="Combined appointments and appointment orders.">
           <h3 style={{ margin: 0 }}>
             {formatUSD(
               (mappedAppointments.reduce((sum, a) => sum + a.amount, 0) +
                 mappedOrders.reduce((sum, o) => sum + o.amount, 0)),
-              { from: 'VND' },
+              { from: 'USD' },
             )}
           </h3>
         </Card>
       </div>
 
-      <Section title="All activities" description="Your appointments and product orders in chronological order.">
+      <Section title="All activities" description="Your appointments and appointment orders in chronological order.">
         {loading ? <p className="zs-card__description">Loading your activities...</p> : null}
 
         {!loading && allActivities.length === 0 ? (
-          <Card title="No activities yet" description="Start by booking an appointment or shopping for products.">
+          <Card title="No activities yet" description="Start by booking an appointment.">
             <div className="zs-action-row">
               <Link className="zs-btn zs-btn--primary zs-btn--sm" to="/client/book">
                 Book now
-              </Link>
-              <Link className="zs-btn zs-btn--ghost zs-btn--sm" to="/products">
-                Shop now
               </Link>
             </div>
           </Card>
@@ -204,7 +198,7 @@ export default function ClientDashboard() {
                   {item.type === 'appointment' ? `Staff: ${item.staffName}` : item.staffName}
                 </p>
                 <p className="zs-card__description" style={{ fontWeight: 600, marginTop: '0.5rem' }}>
-                  {formatUSD(item.amount, { from: 'VND' })}
+                  {formatUSD(item.amount, { from: 'USD' })}
                 </p>
 
                 {item.type === 'appointment' && item.canReschedule && (
@@ -239,13 +233,13 @@ export default function ClientDashboard() {
                   </div>
                 )}
 
-                {item.type === 'order' && (
+                {item.type === 'appointment_order' && (
                   <div className="zs-action-row" style={{ marginTop: '0.5rem' }}>
                     <Link
                       className="zs-btn zs-btn--ghost zs-btn--sm"
-                      to={`/client/orders/${item.id}`}
+                      to="/client/history"
                     >
-                      View details
+                      View history
                     </Link>
                   </div>
                 )}
@@ -267,7 +261,7 @@ export default function ClientDashboard() {
               >
                 <p className="zs-card__description">Staff: {item.staffName}</p>
                 <p className="zs-card__description" style={{ fontWeight: 600, marginTop: '0.5rem' }}>
-                  {formatUSD(item.amount, { from: 'VND' })}
+                  {formatUSD(item.amount, { from: 'USD' })}
                 </p>
                 <div className="zs-form">
                   <label className="zs-field">
@@ -305,7 +299,7 @@ export default function ClientDashboard() {
       )}
 
       {!loading && recentOrders.length > 0 && (
-        <Section title="Recent orders" description="Your latest product purchases.">
+        <Section title="Recent appointment orders" description="Your latest paid appointment invoices.">
           <div className="zs-dashboard__row">
             {recentOrders.map((item) => (
               <Card
@@ -316,14 +310,14 @@ export default function ClientDashboard() {
               >
                 <p className="zs-card__description">{item.staffName}</p>
                 <p className="zs-card__description" style={{ fontWeight: 600, marginTop: '0.5rem' }}>
-                  {formatUSD(item.amount, { from: 'VND' })}
+                  {formatUSD(item.amount, { from: 'USD' })}
                 </p>
                 <div className="zs-action-row" style={{ marginTop: '0.5rem' }}>
                   <Link
                     className="zs-btn zs-btn--ghost zs-btn--sm"
-                    to={`/client/orders/${item.id}`}
+                    to="/client/history"
                   >
-                    View details
+                    View history
                   </Link>
                 </div>
               </Card>
@@ -344,7 +338,7 @@ export default function ClientDashboard() {
               >
                 <p className="zs-card__description">Staff: {item.staffName}</p>
                 <p className="zs-card__description" style={{ fontWeight: 600, marginTop: '0.5rem' }}>
-                  {formatUSD(item.amount, { from: 'VND' })}
+                  {formatUSD(item.amount, { from: 'USD' })}
                 </p>
               </Card>
             ))}

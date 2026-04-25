@@ -19,8 +19,13 @@ class UpdateMyProfileRequest extends FormRequest
     public function rules(): array
     {
         $abilities = $this->user()?->currentAccessToken()?->abilities ?? [];
-        $isClient = in_array('client', $abilities, true);
-        $isStaff = in_array('staff', $abilities, true);
+        $user = $this->user();
+        $isClient = in_array('client', $abilities, true)
+            || $user instanceof \App\Models\Client
+            || $this->filled('allergy_ids')
+            || $this->filled('client_name');
+        $isStaff = in_array('staff', $abilities, true) || $user instanceof \App\Models\Staff;
+        $isAdmin = in_array('admin', $abilities, true) || $user instanceof \App\Models\Admin;
 
         $rules = [
             'phone' => ['nullable', 'string', 'max:15', 'regex:/^[\+]?[0-9\-\(\)\s]+$/'],
@@ -34,13 +39,15 @@ class UpdateMyProfileRequest extends FormRequest
             $rules['name'] = ['required_without:client_name', 'string', 'min:2', 'max:100'];
             $rules['client_name'] = ['required_without:name', 'string', 'min:2', 'max:100'];
             $rules['allergy_ids'] = ['nullable', 'array'];
-            $rules['allergy_ids.*'] = ['integer', Rule::exists('allergies', 'allergy_id')];
-            $rules['custom_allergies'] = ['nullable', 'array'];
-            $rules['custom_allergies.*'] = ['string', 'min:2', 'max:100'];
+            $rules['allergy_ids.*'] = ['distinct', 'integer', Rule::exists('allergies', 'allergy_id')];
+            $rules['custom_allergies'] = ['prohibited'];
         } elseif ($isStaff) {
             $rules['name'] = ['required_without:staff_name', 'string', 'min:2', 'max:100'];
             $rules['staff_name'] = ['required_without:name', 'string', 'min:2', 'max:100'];
             $rules['specialization'] = ['sometimes', 'string', 'max:100'];
+        } elseif ($isAdmin) {
+            $rules['name'] = ['required_without:admin_name', 'string', 'min:2', 'max:100'];
+            $rules['admin_name'] = ['required_without:name', 'string', 'min:2', 'max:100'];
         } else {
             $rules['name'] = ['required_without:admin_name', 'string', 'min:2', 'max:100'];
             $rules['admin_name'] = ['required_without:name', 'string', 'min:2', 'max:100'];

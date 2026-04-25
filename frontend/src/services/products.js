@@ -10,9 +10,21 @@ export const productService = {
       price: Number(apiProduct.unit_price),
       image: getEntityImage(apiProduct, 'https://images.unsplash.com/photo-1522335789203-aabd1fc54bc9'),
       description: apiProduct.description || '',
-      category: apiProduct.category || 'hair',
+      category: apiProduct.category_label || apiProduct.product_category?.product_category_name || apiProduct.category || 'Uncategorized',
+      categoryId: apiProduct.product_category_id || null,
+      categoryLabel: apiProduct.category_label || apiProduct.product_category?.product_category_name || apiProduct.category || 'Uncategorized',
       stock_quantity: apiProduct.stock_quantity,
     }
+  },
+
+  async categories(signal) {
+    const res = await request('/products/categories', { signal })
+    return Array.isArray(res?.data)
+      ? res.data.map((item) => ({
+          id: item.id,
+          name: item.name,
+        }))
+      : []
   },
 
   async list(params = {}, signal) {
@@ -21,7 +33,7 @@ export const productService = {
       page = 1,
       per_page = 12,
       search,
-      category,
+      product_category_id,
       min_price,
       max_price,
       sort,
@@ -31,7 +43,7 @@ export const productService = {
     qs.set('page', String(page))
     qs.set('per_page', String(per_page))
     if (search) qs.set('search', String(search))
-    if (category) qs.set('category', String(category))
+    if (product_category_id) qs.set('product_category_id', String(product_category_id))
     if (min_price != null && min_price !== '') qs.set('min_price', String(min_price))
     if (max_price != null && max_price !== '') qs.set('max_price', String(max_price))
     if (sort) qs.set('sort', String(sort))

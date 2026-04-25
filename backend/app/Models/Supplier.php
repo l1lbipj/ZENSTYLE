@@ -28,5 +28,4 @@ class Supplier extends Model
     {
         return $this->hasMany(PurchaseOrder::class, 'supplier_id', 'supplier_id');
     }
-
 }

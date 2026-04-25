@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import Card from '../../components/ui/Card'
 import Button from '../../components/ui/Button'
@@ -20,15 +20,18 @@ export default function FeedbackPage() {
   const [appointments, setAppointments] = useState([])
   const [appointmentId, setAppointmentId] = useState('')
   const [feedbackHistory, setFeedbackHistory] = useState([])
+  const [fromDate, setFromDate] = useState('')
+  const [toDate, setToDate] = useState('')
   const [message, setMessage] = useState('')
   const [messageTone, setMessageTone] = useState('success')
   const [loading, setLoading] = useState(true)
 
-  const loadData = () => {
+  const loadData = useCallback((filters = {}) => {
     setLoading(true)
+    const params = filters.fromDate && filters.toDate ? { from_date: filters.fromDate, to_date: filters.toDate } : undefined
     Promise.allSettled([
       businessApi.appointments({ per_page: 50, status: 'inactive' }),
-      businessApi.feedbackList({ per_page: 50 }),
+      businessApi.feedbackList({ per_page: 50, ...params }),
     ])
       .then(([appointmentsRes, feedbackRes]) => {
         const appointmentRows =
@@ -43,11 +46,27 @@ export default function FeedbackPage() {
         setFeedbackHistory(Array.isArray(historyRows) ? historyRows : [])
       })
       .finally(() => setLoading(false))
-  }
+  }, [])
 
   useEffect(() => {
+    const timer = setTimeout(() => {
+      loadData()
+    }, 0)
+
+    return () => {
+      clearTimeout(timer)
+    }
+  }, [loadData])
+
+  const handleApplyRange = () => {
+    loadData({ fromDate, toDate })
+  }
+
+  const handleClearRange = () => {
+    setFromDate('')
+    setToDate('')
     loadData()
-  }, [])
+  }
 
   const appointmentOptions = useMemo(
     () =>
@@ -147,6 +166,16 @@ export default function FeedbackPage() {
       </Section>
 
       <Section title="Team replies" description="Your submitted feedback and answers from staff/admin.">
+        <div className="zs-toolbar" style={{ marginBottom: '1rem' }}>
+          <input className="zs-input zs-toolbar__input" type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} />
+          <input className="zs-input zs-toolbar__input" type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} />
+          <Button type="button" variant="secondary" size="sm" onClick={handleApplyRange} disabled={loading || (!fromDate && !toDate)}>
+            Apply
+          </Button>
+          <Button type="button" variant="ghost" size="sm" onClick={handleClearRange} disabled={loading && !fromDate && !toDate}>
+            Clear
+          </Button>
+        </div>
         <div className="zs-feedback-list">
           {feedbackHistory.length === 0 ? (
             <Card title="No feedback submitted yet" description="Once you send feedback, replies will appear here." />

@@ -1,0 +1,270 @@
+.card {
+  background: #ffffff;
+  border: 1px solid #e4e7ec;
+  border-radius: 16px;
+  box-shadow: 0 2px 8px rgba(16, 24, 40, 0.06);
+  padding: 16px;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: flex-start;
+  margin-bottom: 16px;
+}
+
+.title {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.description {
+  margin: 6px 0 0;
+  color: #667085;
+  font-size: 14px;
+}
+
+.legend {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.legendItem {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 30px;
+  padding: 0 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.scheduled {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.completed {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.cancelled {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.gridWrap {
+  overflow-x: hidden;
+  border: 1px solid #e4e7ec;
+  border-radius: 14px;
+  background: #f8fafc;
+}
+
+.grid {
+  display: grid;
+  width: 100%;
+  min-width: 0;
+}
+
+.corner,
+.dayHeader,
+.timeColumn,
+.dayColumn {
+  border-right: 1px solid #e5e7eb;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.corner {
+  position: sticky;
+  left: 0;
+  z-index: 3;
+  background: #0f172a;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  padding: 12px 10px;
+  font-weight: 700;
+}
+
+.dayHeader {
+  background: #0f172a;
+  color: #ffffff;
+  padding: 10px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.todayHeader {
+  background: #1d4ed8;
+}
+
+.dayLabel {
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.dayDate {
+  font-size: 14px;
+  opacity: 0.92;
+}
+
+.timeColumn {
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  background: #ffffff;
+  display: grid;
+  min-width: 0;
+}
+
+.timeSlot {
+  padding: 0 8px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  font-size: 12px;
+  color: #475569;
+  background: #ffffff;
+  border-top: 1px solid #eef2f7;
+}
+
+.slot {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(248, 250, 252, 0.92));
+  border-top: 1px solid #eef2f7;
+  min-height: 54px;
+}
+
+.dayColumn {
+  position: relative;
+  display: grid;
+  grid-auto-flow: row;
+  min-width: 0;
+  overflow: hidden;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.8), rgba(248, 250, 252, 0.8));
+}
+
+.dayColumn .slot:last-child,
+.timeColumn .timeSlot:last-child {
+  border-bottom: none;
+}
+
+.currentSlot {
+  background: #e0f2fe !important;
+}
+
+.appointmentCard {
+  margin: 3px 5px;
+  padding: 10px;
+  border-radius: 12px;
+  border: 1px solid transparent;
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.08);
+  z-index: 2;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  max-width: calc(100% - 10px);
+}
+
+.appointmentHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.cardTitle {
+  font-size: 13px;
+  color: #0f172a;
+  line-height: 1.3;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 700;
+}
+
+.statusPill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.75);
+  font-size: 11px;
+  font-weight: 700;
+  color: #0f172a;
+  white-space: nowrap;
+}
+
+.meta {
+  font-size: 11px;
+  color: rgba(15, 23, 42, 0.8);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.statusRow {
+  display: flex;
+  justify-content: flex-start;
+  margin-top: 2px;
+}
+
+.scheduled.appointmentCard {
+  background: linear-gradient(180deg, #fff7d6, #fef3c7);
+  border-color: #fbbf24;
+}
+
+.completed.appointmentCard {
+  background: linear-gradient(180deg, #dcfce7, #bbf7d0);
+  border-color: #22c55e;
+}
+
+.cancelled.appointmentCard {
+  background: linear-gradient(180deg, #fee2e2, #fecaca);
+  border-color: #ef4444;
+}
+
+.footer {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 16px;
+  flex-wrap: wrap;
+}
+
+.footerItem {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.footerLabel {
+  font-size: 12px;
+  color: #64748b;
+}
+
+@media (max-width: 900px) {
+  .header {
+    flex-direction: column;
+  }
+
+  .corner {
+    min-width: 76px;
+  }
+}

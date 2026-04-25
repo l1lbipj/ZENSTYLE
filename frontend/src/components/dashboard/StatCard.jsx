@@ -5,12 +5,16 @@ export default function StatCard({ title, value, delta, tone = 'neutral', icon }
   return (
     <Card>
       <div className="zs-stat">
-        <div>
+        <div className="zs-stat__main">
           <span className="zs-stat__title">{title}</span>
           <h3 className="zs-stat__value">{value}</h3>
         </div>
         {icon && <div className="zs-stat__icon">{icon}</div>}
-        {delta && <Badge tone={tone}>{delta}</Badge>}
+        {delta && (
+          <div className="zs-stat__meta">
+            <Badge tone={tone}>{delta}</Badge>
+          </div>
+        )}
       </div>
     </Card>
   )

@@ -14,16 +14,15 @@ class UpdateClientPreferencesRequest extends FormRequest
     {
         $abilities = $this->user()?->currentAccessToken()?->abilities ?? [];
 
-        return in_array('client', $abilities, true);
+        return in_array('client', $abilities, true) || $this->user() instanceof \App\Models\Client;
     }
 
     public function rules(): array
     {
         return [
             'allergy_ids' => ['nullable', 'array'],
-            'allergy_ids.*' => ['integer', Rule::exists('allergies', 'allergy_id')],
-            'custom_allergies' => ['nullable', 'array'],
-            'custom_allergies.*' => ['string', 'min:2', 'max:100'],
+            'allergy_ids.*' => ['distinct', 'integer', Rule::exists('allergies', 'allergy_id')],
+            'custom_allergies' => ['prohibited'],
             'preferred_staff' => ['nullable', 'array'],
             'preferred_staff.*.staff_id' => ['required', 'integer', Rule::exists('staff', 'staff_id')],
             'preferred_staff.*.note' => ['nullable', 'string'],

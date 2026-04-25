@@ -23,9 +23,11 @@ return new class extends Migration
             $table->enum('payment_status',['pay', 'unpay'])->default('unpay');
             $table->enum('status', ['active', 'inactive'])->default('active');
             $table->timestamps();
+
+            $table->index(['appointment_date', 'status', 'payment_status']);
         });
-        DB::statement('ALTER TABLE appointments ADD CONSTRAINT check_total_amount CHECK (total_amount > 0)');
-        DB::statement('ALTER TABLE appointments ADD CONSTRAINT check_final_amount CHECK (final_amount > 0)');
+        DB::statement('ALTER TABLE appointments ADD CONSTRAINT chk_appointments_total_amount CHECK (total_amount > 0)');
+        DB::statement('ALTER TABLE appointments ADD CONSTRAINT chk_appointments_final_amount CHECK (final_amount > 0)');
     }
 
     /**

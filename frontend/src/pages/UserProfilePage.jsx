@@ -26,6 +26,12 @@ export default function UserProfilePage() {
   const [imageData, setImageData] = useState('')
   const [password, setPassword] = useState('')
   const [passwordConfirmation, setPasswordConfirmation] = useState('')
+  const [originalState, setOriginalState] = useState({
+    name: '',
+    phone: '',
+    dob: '',
+    imageData: '',
+  })
 
   const displayName = useMemo(() => {
     const raw = profile?.client_name ?? profile?.staff_name ?? profile?.admin_name ?? profile?.name
@@ -41,10 +47,6 @@ export default function UserProfilePage() {
     return getEntityImage({ ...profile, image_data: imageData || profile?.image_data }, null)
   }, [imageData, profile])
 
-  if (user?.role === 'client') {
-    return <Navigate to="/client/profile" replace />
-  }
-
   const refresh = async () => {
     setError('')
     setSuccess('')
@@ -54,12 +56,20 @@ export default function UserProfilePage() {
       const payload = res?.data?.data || {}
       const nextUser = payload.user || null
       setProfile(nextUser)
-      setName(
-        (nextUser?.client_name ?? nextUser?.staff_name ?? nextUser?.admin_name ?? nextUser?.name ?? '').toString(),
-      )
-      setPhone((nextUser?.phone ?? '').toString())
-      setDob((nextUser?.dob ?? '').toString())
-      setImageData((nextUser?.image_data ?? '').toString())
+      const nextName = (nextUser?.client_name ?? nextUser?.staff_name ?? nextUser?.admin_name ?? nextUser?.name ?? '').toString()
+      const nextPhone = (nextUser?.phone ?? '').toString()
+      const nextDob = (nextUser?.dob ?? '').toString()
+      const nextImageData = (nextUser?.image_data ?? '').toString()
+      setName(nextName)
+      setPhone(nextPhone)
+      setDob(nextDob)
+      setImageData(nextImageData)
+      setOriginalState({
+        name: nextName,
+        phone: nextPhone,
+        dob: nextDob,
+        imageData: nextImageData,
+      })
 
       // Keep AuthContext (stored payload) in sync for navbar name.
       const token = getAccessToken()
@@ -98,6 +108,26 @@ export default function UserProfilePage() {
     refresh()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  if (user?.role === 'client') {
+    return <Navigate to="/client/profile" replace />
+  }
+
+  const resetProfileForm = () => {
+    setName(originalState.name)
+    setPhone(originalState.phone)
+    setDob(originalState.dob)
+    setImageData(originalState.imageData)
+    setError('')
+    setSuccess('')
+  }
+
+  const resetSecurityForm = () => {
+    setPassword('')
+    setPasswordConfirmation('')
+    setError('')
+    setSuccess('')
+  }
 
   const validate = () => {
     const trimmedName = name.trim()
@@ -166,7 +196,7 @@ export default function UserProfilePage() {
 
       {loading ? (
         <div className="zs-page-state" role="status" aria-busy="true">
-          Loading…
+          Loading...
         </div>
       ) : null}
       {!loading && error ? <div className="zs-alert zs-alert--error">{error}</div> : null}
@@ -241,7 +271,7 @@ export default function UserProfilePage() {
                 ) : null}
                 <div className="zs-profile__form-actions">
                   <Button type="submit">Save changes</Button>
-                  <Button variant="ghost" type="button">
+                  <Button variant="ghost" type="button" onClick={resetProfileForm}>
                     Cancel
                   </Button>
                 </div>
@@ -268,7 +298,7 @@ export default function UserProfilePage() {
                 </div>
                 <div className="zs-profile__form-actions">
                   <Button type="submit">Update password</Button>
-                  <Button variant="ghost" type="button">
+                  <Button variant="ghost" type="button" onClick={resetSecurityForm}>
                     Cancel
                   </Button>
                 </div>
@@ -286,3 +316,4 @@ export default function UserProfilePage() {
     </div>
   )
 }
+

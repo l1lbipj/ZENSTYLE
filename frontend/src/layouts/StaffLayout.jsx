@@ -6,8 +6,7 @@ const navSections = [
     title: 'Overview',
     items: [
       { label: 'Dashboard', to: '/staff', icon: 'home' },
-      { label: 'Notifications', to: '/staff/notifications', icon: 'task' },
-      { label: 'My profile', to: '/staff/profile', icon: 'user' },
+      { label: 'My profile', to: '/profile', icon: 'user' },
     ],
   },
   {

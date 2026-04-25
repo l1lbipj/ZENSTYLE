@@ -7,10 +7,11 @@ use App\Http\Requests\Api\StoreAppointmentRequest;
 use App\Http\Responses\ApiResponse;
 use App\Models\Appointment;
 use App\Models\AppointmentDetail;
-use App\Models\InventoryLog;
-use App\Models\Product;
 use App\Models\Service;
 use App\Models\StaffSchedule;
+use App\Services\AppointmentAttendanceService;
+use App\Services\ClientNotificationService;
+use Carbon\Carbon;
 use Illuminate\Http\Exceptions\HttpResponseException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -18,39 +19,54 @@ use Illuminate\Support\Facades\Schema;
 
 class AppointmentController extends Controller
 {
+    private const BUSINESS_START = '07:00';
+    private const BUSINESS_END = '22:00';
+
+    public function __construct(private readonly ClientNotificationService $notificationService)
+    {
+    }
+
     private function usesMixedItemSchema(): bool
     {
         return Schema::hasColumn('appointment_details', 'item_id');
     }
 
-    private function usesLegacyItemTypeValues(): bool
-    {
-        try {
-            $column = DB::selectOne("SHOW COLUMNS FROM appointment_details LIKE 'item_type'");
-            $type = strtolower((string) ($column->Type ?? ''));
-
-            return str_contains($type, "enum('skin','hair')") || str_contains($type, 'enum(\'skin\',\'hair\')');
-        } catch (\Throwable) {
-            return false;
-        }
-    }
-
     private function constrainServiceDetails($query, bool $usesMixedItemSchema, bool $usesLegacyItemTypeValues): void
     {
-        if ($usesMixedItemSchema && ! $usesLegacyItemTypeValues) {
-            $query->where('item_type', 'service');
-
-            return;
-        }
-
         $query->whereNotNull('service_id');
     }
 
-    private function resolveLegacyServiceItemType(Service $service): string
+    private function timeToMinutes(string $time): int
     {
-        $categoryName = strtolower((string) optional($service->category)->category_name);
+        [$hour, $minute] = array_pad(explode(':', $time, 2), 2, '0');
 
-        return str_contains($categoryName, 'skin') ? 'skin' : 'hair';
+        return ((int) $hour * 60) + (int) $minute;
+    }
+
+    private function assertBusinessHours(string $startTime, string $endTime, int $itemNumber = 0): void
+    {
+        $startMinutes = $this->timeToMinutes($startTime);
+        $endMinutes = $this->timeToMinutes($endTime);
+        $minMinutes = $this->timeToMinutes(self::BUSINESS_START);
+        $maxMinutes = $this->timeToMinutes(self::BUSINESS_END);
+
+        if ($startMinutes < $minMinutes || $endMinutes > $maxMinutes) {
+            $prefix = $itemNumber > 0 ? "Item #{$itemNumber} " : '';
+            throw new HttpResponseException(ApiResponse::error(
+                $prefix.'must be scheduled between 07:00 and 22:00.',
+                422,
+                'BUSINESS_HOURS_VIOLATION',
+            ));
+        }
+
+        if ($startMinutes >= $endMinutes) {
+            $prefix = $itemNumber > 0 ? "Item #{$itemNumber} " : '';
+            throw new HttpResponseException(ApiResponse::error(
+                $prefix.'has invalid time range.',
+                422,
+                'INVALID_TIME_RANGE',
+            ));
+        }
     }
 
     private function abilities(Request $request): array
@@ -62,7 +78,6 @@ class AppointmentController extends Controller
     {
         $abilities = $this->abilities($request);
         $usesMixedItemSchema = $this->usesMixedItemSchema();
-        $usesLegacyItemTypeValues = $this->usesLegacyItemTypeValues();
 
         if (in_array('admin', $abilities, true)) {
             return true;
@@ -76,8 +91,8 @@ class AppointmentController extends Controller
             return AppointmentDetail::query()
                 ->where('appointment_id', $appointment->appointment_id)
                 ->where('staff_id', $request->user()->getKey())
-                ->where(function ($query) use ($usesMixedItemSchema, $usesLegacyItemTypeValues) {
-                    $this->constrainServiceDetails($query, $usesMixedItemSchema, $usesLegacyItemTypeValues);
+                ->where(function ($query) use ($usesMixedItemSchema) {
+                    $this->constrainServiceDetails($query, $usesMixedItemSchema, false);
                 })
                 ->exists();
         }
@@ -87,20 +102,14 @@ class AppointmentController extends Controller
 
     public function index(Request $request)
     {
-        $usesMixedItemSchema = $this->usesMixedItemSchema();
-        $usesLegacyItemTypeValues = $this->usesLegacyItemTypeValues();
-        $detailRelations = ['appointmentDetails.service', 'appointmentDetails.product'];
-        if ($usesMixedItemSchema) {
-            $detailRelations[] = 'appointmentDetails.item';
-        }
-
         $query = Appointment::query()
             ->with(array_merge([
                 'client:client_id,client_name,email,phone',
                 'client.allergies:allergies.allergy_id,allergy_name',
                 'appointmentDetails.staff:staff_id,staff_name',
+                'appointmentDetails.service:service_id,service_name,price,duration',
                 'feedback:feedback_id,appointment_id,customer_id,staff_id,rating,comment,notes,reply,manager_reply,replied_at',
-            ], $detailRelations))
+            ]))
             ->orderByDesc('appointment_date');
 
         $abilities = $this->abilities($request);
@@ -110,7 +119,7 @@ class AppointmentController extends Controller
             $staffId = $request->user()->getKey();
             $query->whereHas('appointmentDetails', function ($q) use ($staffId) {
                 $q->where('staff_id', $staffId);
-                $this->constrainServiceDetails($q, $this->usesMixedItemSchema(), $this->usesLegacyItemTypeValues());
+                $this->constrainServiceDetails($q, $this->usesMixedItemSchema(), false);
             });
         } elseif (! in_array('admin', $abilities, true)) {
             return ApiResponse::error('Access denied.', 403, 'FORBIDDEN');
@@ -119,6 +128,23 @@ class AppointmentController extends Controller
         $status = $request->query('status');
         if ($status !== null) {
             $query->where('status', $status);
+        }
+
+        if ($staffId = $request->query('staff_id')) {
+            $query->whereHas('appointmentDetails', function ($q) use ($staffId) {
+                $q->where('staff_id', $staffId);
+                $this->constrainServiceDetails($q, $this->usesMixedItemSchema(), false);
+            });
+        }
+
+        if ($date = $request->query('date')) {
+            $query->whereDate('appointment_date', $date);
+        } elseif ($from = $request->query('from')) {
+            $to = $request->query('to', $from);
+            $query->whereBetween('appointment_date', [
+                Carbon::parse($from)->startOfDay(),
+                Carbon::parse($to)->endOfDay(),
+            ]);
         }
 
         $appointments = $query->paginate((int) $request->query('per_page', 10));
@@ -137,42 +163,28 @@ class AppointmentController extends Controller
         }
 
         $items = $validated['items'];
-        $hasServiceItem = false;
         $serviceIds = [];
-        $productIds = [];
 
         foreach ($items as $item) {
-            if (($item['item_type'] ?? null) === 'service') {
-                $hasServiceItem = true;
-                $serviceIds[] = (int) $item['item_id'];
-            } else {
-                $productIds[] = (int) $item['item_id'];
+            if (($item['item_type'] ?? null) !== 'service') {
+                throw new HttpResponseException(ApiResponse::error('Only service items are allowed in appointments.', 422, 'INVALID_ITEM_TYPE'));
             }
+
+            $serviceIds[] = (int) $item['item_id'];
         }
 
-        if ($hasServiceItem && empty($validated['appointment_date'])) {
+        if (empty($validated['appointment_date'])) {
             return ApiResponse::error('appointment_date is required for service items.', 422, 'VALIDATION_ERROR');
         }
 
-        $appointmentDate = $hasServiceItem
-            ? \Carbon\Carbon::parse($validated['appointment_date'])->startOfDay()
-            : now()->startOfDay();
+        $appointmentDate = \Carbon\Carbon::parse($validated['appointment_date'])->startOfDay();
 
-        $usesMixedItemSchema = $this->usesMixedItemSchema();
-        $usesLegacyItemTypeValues = $this->usesLegacyItemTypeValues();
-
-        $appointment = DB::transaction(function () use ($usesLegacyItemTypeValues, $usesMixedItemSchema, $appointmentDate, $clientId, $hasServiceItem, $items, $productIds, $serviceIds, $validated) {
+        $appointment = DB::transaction(function () use ($appointmentDate, $clientId, $items, $serviceIds, $validated) {
             $services = Service::query()
                 ->whereIn('service_id', array_values(array_unique($serviceIds)))
                 ->with('category:category_id,category_name')
                 ->get()
                 ->keyBy('service_id');
-
-            $products = Product::query()
-                ->whereIn('product_id', array_values(array_unique($productIds)))
-                ->lockForUpdate()
-                ->get()
-                ->keyBy('product_id');
 
             $detailsToCreate = [];
             $totalAmount = 0.0;
@@ -180,104 +192,40 @@ class AppointmentController extends Controller
             $earliestStart = null;
 
             foreach ($items as $idx => $item) {
-                $itemType = $item['item_type'];
                 $itemId = (int) $item['item_id'];
-                $qty = (int) $item['quantity'];
-
-                if ($itemType === 'service') {
-                    $service = $services->get($itemId);
-                    if (! $service) {
-                        throw new HttpResponseException(ApiResponse::error("Item #".($idx + 1)." service not found.", 422, 'INVALID_SERVICE'));
-                    }
-
-                    $staffId = (int) ($item['staff_id'] ?? 0);
-                    $startTime = (string) ($item['start_time'] ?? '');
-                    $endTime = (string) ($item['end_time'] ?? '');
-                    if ($staffId <= 0 || $startTime === '' || $endTime === '') {
-                        throw new HttpResponseException(ApiResponse::error("Item #".($idx + 1)." must include staff_id, start_time, end_time for service.", 422, 'VALIDATION_ERROR'));
-                    }
-                    if ($startTime >= $endTime) {
-                        throw new HttpResponseException(ApiResponse::error("Item #".($idx + 1)." has invalid time range.", 422, 'INVALID_TIME_RANGE'));
-                    }
-
-                    $intervalsByStaff[$staffId][] = [$startTime, $endTime, $idx + 1];
-                    $earliestStart = $earliestStart === null ? $startTime : min($earliestStart, $startTime);
-
-                    $lineTotal = (float) $service->price * $qty;
-                    $totalAmount += $lineTotal;
-
-                    if ($usesMixedItemSchema) {
-                        $detailsToCreate[] = [
-                            'staff_id' => $staffId,
-                            'item_type' => $usesLegacyItemTypeValues ? $this->resolveLegacyServiceItemType($service) : 'service',
-                            'item_id' => $itemId,
-                            // Keep legacy references populated for databases that still have old CHECK constraints.
-                            'service_id' => $itemId,
-                            'product_id' => null,
-                            'quantity' => $qty,
-                            'price' => $lineTotal,
-                            'start_time' => $startTime,
-                            'end_time' => $endTime,
-                            'status' => 'active',
-                        ];
-                    } else {
-                        // Old schema fallback: service_id + legacy item_type skin/hair (we don't have category here → default 'hair').
-                        $detailsToCreate[] = [
-                            'staff_id' => $staffId,
-                            'item_type' => 'hair',
-                            'service_id' => $itemId,
-                            'product_id' => null,
-                            'quantity' => $qty,
-                            'total_price' => $lineTotal,
-                            'start_time' => $startTime,
-                            'end_time' => $endTime,
-                            'status' => 'active',
-                        ];
-                    }
-                } else {
-                    $product = $products->get($itemId);
-                    if (! $product) {
-                        throw new HttpResponseException(ApiResponse::error("Item #".($idx + 1)." product not found.", 422, 'INVALID_PRODUCT'));
-                    }
-                    if ((int) $product->stock_quantity < $qty) {
-                        throw new HttpResponseException(ApiResponse::error("Item #".($idx + 1)." is out of stock.", 422, 'OUT_OF_STOCK'));
-                    }
-
-                    $lineTotal = (float) $product->unit_price * $qty;
-                    $totalAmount += $lineTotal;
-
-                    if ($usesMixedItemSchema) {
-                        $detailsToCreate[] = [
-                            'staff_id' => null,
-                            'item_type' => $usesLegacyItemTypeValues ? 'hair' : 'product',
-                            'item_id' => $itemId,
-                            // Keep legacy references populated for databases that still have old CHECK constraints.
-                            'service_id' => null,
-                            'product_id' => $itemId,
-                            'quantity' => $qty,
-                            'price' => $lineTotal,
-                            'start_time' => null,
-                            'end_time' => null,
-                            'status' => 'active',
-                        ];
-                    } else {
-                        // Old schema fallback
-                        $detailsToCreate[] = [
-                            'staff_id' => null,
-                            'item_type' => 'hair',
-                            'service_id' => null,
-                            'product_id' => $itemId,
-                            'quantity' => $qty,
-                            'total_price' => $lineTotal,
-                            'start_time' => '00:00',
-                            'end_time' => '00:01',
-                            'status' => 'active',
-                        ];
-                    }
+                $service = $services->get($itemId);
+                if (! $service) {
+                    throw new HttpResponseException(ApiResponse::error("Item #".($idx + 1)." service not found.", 422, 'INVALID_SERVICE'));
                 }
+
+                $staffId = (int) ($item['staff_id'] ?? 0);
+                $startTime = (string) ($item['start_time'] ?? '');
+                $endTime = (string) ($item['end_time'] ?? '');
+                if ($staffId <= 0 || $startTime === '' || $endTime === '') {
+                    throw new HttpResponseException(ApiResponse::error("Item #".($idx + 1)." must include staff_id, start_time, end_time for service.", 422, 'VALIDATION_ERROR'));
+                }
+                if ($startTime >= $endTime) {
+                    throw new HttpResponseException(ApiResponse::error("Item #".($idx + 1)." has invalid time range.", 422, 'INVALID_TIME_RANGE'));
+                }
+                $this->assertBusinessHours($startTime, $endTime, $idx + 1);
+
+                $intervalsByStaff[$staffId][] = [$startTime, $endTime, $idx + 1];
+                $earliestStart = $earliestStart === null ? $startTime : min($earliestStart, $startTime);
+
+                $lineTotal = (float) $service->price;
+                $totalAmount += $lineTotal;
+
+                $detailsToCreate[] = [
+                    'staff_id' => $staffId,
+                    'item_id' => $itemId,
+                    'service_id' => $itemId,
+                    'price' => $lineTotal,
+                    'start_time' => $startTime,
+                    'end_time' => $endTime,
+                    'status' => 'active',
+                ];
             }
 
-            // Prevent overlaps within the same request (service-only).
             foreach ($intervalsByStaff as $staffId => $intervals) {
                 usort($intervals, fn ($a, $b) => strcmp($a[0], $b[0]));
                 for ($i = 1; $i < count($intervals); $i++) {
@@ -297,8 +245,7 @@ class AppointmentController extends Controller
                 $finalAmount = $totalAmount * max(0, 100 - $percent) / 100;
             }
 
-            // Use earliest service start time for appointment_date (or now for product-only).
-            $appointmentDateTime = $hasServiceItem && $earliestStart
+            $appointmentDateTime = $earliestStart
                 ? $appointmentDate->copy()->setTimeFromTimeString($earliestStart.':00')
                 : now();
 
@@ -311,69 +258,38 @@ class AppointmentController extends Controller
                 'payment_method' => $validated['payment_method'] ?? null,
                 'payment_status' => 'unpay',
                 'status' => 'active',
+                ...(Schema::hasColumn('appointments', 'attendance_status') ? ['attendance_status' => 'Pending'] : []),
+                ...(Schema::hasColumn('appointments', 'check_in_time') ? ['check_in_time' => null] : []),
+                ...(Schema::hasColumn('appointments', 'check_out_time') ? ['check_out_time' => null] : []),
+                ...(Schema::hasColumn('appointments', 'reminder_sent') ? ['reminder_sent' => false] : []),
+                ...(
+                    Schema::hasColumn('appointments', 'notification_preference')
+                        ? ['notification_preference' => $validated['notification_preference'] ?? 'both']
+                        : []
+                ),
             ]);
 
-            // Re-check overlap inside the same transaction (race-condition mitigation).
             foreach ($detailsToCreate as $detail) {
-                // Only service-lines have staff/time.
-                if ($usesMixedItemSchema) {
-                    if (empty($detail['service_id'])) {
-                        continue;
-                    }
-                } else {
-                    if (empty($detail['service_id'])) {
-                        continue;
-                    }
-                }
-
                 $this->ensureNoOverlap(
                     $appointmentDate,
                     (int) $detail['staff_id'],
                     (string) $detail['start_time'],
                     (string) $detail['end_time'],
                     true,
-                    $usesMixedItemSchema,
+                    true,
                 );
 
-                $this->ensureStaffAvailability(
-                    $appointmentDate,
-                    (int) $detail['staff_id'],
-                    (string) $detail['start_time'],
-                    (string) $detail['end_time'],
-                );
-            }
-
-            foreach ($detailsToCreate as $detail) {
                 AppointmentDetail::create([
                     'appointment_id' => $appointment->appointment_id,
                     ...$detail,
                 ]);
-
-                $isProductLine = $usesMixedItemSchema ? ($detail['item_type'] === 'product') : (! empty($detail['product_id']));
-                $productId = $usesMixedItemSchema ? (int) ($detail['item_id'] ?? 0) : (int) ($detail['product_id'] ?? 0);
-
-                if ($isProductLine) {
-                    $product = $products->get($productId);
-                    if ($product) {
-                        $product->stock_quantity = (int) $product->stock_quantity - (int) $detail['quantity'];
-                        $product->save();
-
-                        InventoryLog::create([
-                            'product_id' => $productId,
-                            'change_amount' => -1 * (int) $detail['quantity'],
-                            'reason' => 'Sold in appointment #'.$appointment->appointment_id,
-                        ]);
-                    }
-                }
             }
 
             return $appointment->load([
                 'client:client_id,client_name,email,phone',
                 'client.allergies:allergies.allergy_id,allergy_name',
                 'appointmentDetails.staff:staff_id,staff_name',
-                'appointmentDetails.service',
-                'appointmentDetails.product',
-                ...($usesMixedItemSchema ? ['appointmentDetails.item'] : []),
+                'appointmentDetails.service:service_id,service_name,price,duration',
             ]);
         });
 
@@ -390,7 +306,14 @@ class AppointmentController extends Controller
             return ApiResponse::error('Access denied.', 403, 'FORBIDDEN');
         }
 
+        if (in_array($appointment->attendance_status, ['Checked-In', 'Completed'], true)) {
+            return ApiResponse::error('Checked-in or completed appointments cannot be cancelled.', 422, 'INVALID_APPOINTMENT_STATE');
+        }
+
         $appointment->status = 'inactive';
+        if (Schema::hasColumn('appointments', 'attendance_status')) {
+            $appointment->attendance_status = 'Cancelled';
+        }
         $appointment->save();
 
         AppointmentDetail::where('appointment_id', $appointment->appointment_id)->update(['status' => 'inactive']);
@@ -404,14 +327,14 @@ class AppointmentController extends Controller
         if (! $appointment) {
             return ApiResponse::error('Appointment not found.', 404, 'NOT_FOUND');
         }
-        if (! in_array('admin', $this->abilities($request), true) && ! in_array('staff', $this->abilities($request), true)) {
+        $abilities = $this->abilities($request);
+        if (! in_array('admin', $abilities, true) && ! in_array('staff', $abilities, true) && ! in_array('client', $abilities, true)) {
             return ApiResponse::error('Access denied.', 403, 'FORBIDDEN');
         }
 
-        $appointment->status = 'active';
-        $appointment->save();
+        $appointment = app(AppointmentAttendanceService::class)->checkIn($request, $appointment);
 
-        return ApiResponse::success($appointment->fresh(), 'Client checked in.');
+        return ApiResponse::success($appointment, 'Appointment checked in.');
     }
 
     public function checkOut(Request $request, string $id)
@@ -420,17 +343,16 @@ class AppointmentController extends Controller
         if (! $appointment) {
             return ApiResponse::error('Appointment not found.', 404, 'NOT_FOUND');
         }
-        if (! in_array('admin', $this->abilities($request), true) && ! in_array('staff', $this->abilities($request), true)) {
+        $abilities = $this->abilities($request);
+        if (! in_array('admin', $abilities, true) && ! in_array('staff', $abilities, true) && ! in_array('client', $abilities, true)) {
             return ApiResponse::error('Access denied.', 403, 'FORBIDDEN');
         }
 
-        $appointment->payment_status = 'pay';
-        $appointment->status = 'inactive';
-        $appointment->save();
+        $appointment = app(AppointmentAttendanceService::class)->checkOut($request, $appointment);
 
         AppointmentDetail::where('appointment_id', $appointment->appointment_id)->update(['status' => 'inactive']);
 
-        return ApiResponse::success($appointment->fresh(), 'Client checked out and payment completed.');
+        return ApiResponse::success($appointment, 'Appointment checked out.');
     }
 
     public function reschedule(Request $request, string $id)
@@ -450,14 +372,9 @@ class AppointmentController extends Controller
         $rawAppointmentDate = (string) $validated['appointment_date'];
         $newDateTime = \Carbon\Carbon::parse($rawAppointmentDate);
         $includesExplicitTime = preg_match('/\d{2}:\d{2}/', $rawAppointmentDate) === 1;
-        $usesMixedItemSchema = Schema::hasColumn('appointment_details', 'item_id');
 
-        DB::transaction(function () use ($appointment, $newDateTime, $usesMixedItemSchema, $includesExplicitTime) {
-            $serviceDetails = $appointment->appointmentDetails->filter(function ($detail) use ($usesMixedItemSchema) {
-                if ($usesMixedItemSchema) {
-                    return $detail->item_type === 'service';
-                }
-
+        DB::transaction(function () use ($appointment, $newDateTime, $includesExplicitTime) {
+            $serviceDetails = $appointment->appointmentDetails->filter(function ($detail) {
                 return ! empty($detail->service_id);
             });
 
@@ -476,13 +393,15 @@ class AppointmentController extends Controller
                     $newEndTime = $currentEnd->format('H:i');
                 }
 
+                $this->assertBusinessHours($newStartTime, $newEndTime);
+
                 $this->ensureNoOverlap(
                     $newDateTime->copy()->startOfDay(),
                     (int) $detail->staff_id,
                     $newStartTime,
                     $newEndTime,
                     true,
-                    $usesMixedItemSchema,
+                    true,
                     (int) $appointment->appointment_id,
                 );
 
@@ -494,8 +413,16 @@ class AppointmentController extends Controller
             }
 
             $appointment->appointment_date = $newDateTime;
+            if (Schema::hasColumn('appointments', 'reminder_sent')) {
+                $appointment->reminder_sent = false;
+            }
+            if (Schema::hasColumn('appointments', 'reminder_sent_at')) {
+                $appointment->reminder_sent_at = null;
+            }
             $appointment->save();
         });
+
+        $this->notificationService->forgetReadState((int) $appointment->client_id, (int) $appointment->appointment_id);
 
         return ApiResponse::success($appointment->fresh(), 'Appointment rescheduled successfully.');
     }
@@ -506,7 +433,7 @@ class AppointmentController extends Controller
         if (! $detail) {
             return ApiResponse::error('Task not found.', 404, 'NOT_FOUND');
         }
-        if (empty($detail->service_id) && $detail->item_type !== 'service') {
+        if (empty($detail->service_id)) {
             return ApiResponse::error('Only service tasks can be completed.', 422, 'INVALID_ITEM_TYPE');
         }
 
@@ -522,6 +449,53 @@ class AppointmentController extends Controller
         $detail->save();
 
         return ApiResponse::success($detail->fresh(), 'Task marked as completed.');
+    }
+
+    public function startService(Request $request, string $id)
+    {
+        $appointment = Appointment::find($id);
+        if (! $appointment) {
+            return ApiResponse::error('Appointment not found.', 404, 'NOT_FOUND');
+        }
+
+        if (! in_array('admin', $this->abilities($request), true) && ! in_array('staff', $this->abilities($request), true)) {
+            return ApiResponse::error('Access denied.', 403, 'FORBIDDEN');
+        }
+
+        if ($appointment->status !== 'active') {
+            return ApiResponse::error('Appointment is not active.', 422, 'INVALID_APPOINTMENT_STATE');
+        }
+
+        $appointment->service_started_at = $appointment->service_started_at ?: now();
+        $appointment->assigned_staff_id = $appointment->assigned_staff_id ?: $request->user()->getKey();
+        $appointment->save();
+
+        AppointmentDetail::where('appointment_id', $appointment->appointment_id)->update([
+            'started_at' => now(),
+        ]);
+
+        return ApiResponse::success($appointment->fresh(), 'Service started.');
+    }
+
+    public function endService(Request $request, string $id)
+    {
+        $appointment = Appointment::find($id);
+        if (! $appointment) {
+            return ApiResponse::error('Appointment not found.', 404, 'NOT_FOUND');
+        }
+
+        if (! in_array('admin', $this->abilities($request), true) && ! in_array('staff', $this->abilities($request), true)) {
+            return ApiResponse::error('Access denied.', 403, 'FORBIDDEN');
+        }
+
+        $appointment->service_completed_at = now();
+        $appointment->save();
+
+        AppointmentDetail::where('appointment_id', $appointment->appointment_id)->update([
+            'completed_at' => now(),
+        ]);
+
+        return ApiResponse::success($appointment->fresh(), 'Service completed.');
     }
 
     private function ensureNoOverlap(
@@ -551,13 +525,7 @@ class AppointmentController extends Controller
             $query->where('appointments.appointment_id', '!=', $ignoreAppointmentId);
         }
 
-        // New schema stores service lines with item_type = 'service'.
-        // Old schema uses item_type = 'hair'/'skin', so we must NOT filter by item_type there.
-        if ($usesMixedItemSchema && ! $this->usesLegacyItemTypeValues()) {
-            $query->where('appointment_details.item_type', 'service');
-        } else {
-            $query->whereNotNull('appointment_details.service_id');
-        }
+        $query->whereNotNull('appointment_details.service_id');
 
         if ($forUpdate) {
             $query->lockForUpdate();
@@ -578,31 +546,4 @@ class AppointmentController extends Controller
         }
     }
 
-    private function ensureStaffAvailability(
-        \Carbon\Carbon $appointmentDate,
-        int $staffId,
-        string $startTime,
-        string $endTime,
-    ): void
-    {
-        $schedule = StaffSchedule::query()
-            ->where('staff_id', $staffId)
-            ->whereDate('date', $appointmentDate->toDateString())
-            ->first();
-
-        if (! $schedule) {
-            // Some demo/local datasets do not generate full schedules for all future dates.
-            // In that case, skip shift-window validation and rely on overlap checks only.
-            return;
-        }
-
-        $shiftStart = substr((string) $schedule->check_in, 0, 5);
-        $shiftEnd = substr((string) $schedule->check_out, 0, 5);
-
-        if ($startTime < $shiftStart || $endTime > $shiftEnd) {
-            throw new HttpResponseException(
-                ApiResponse::error('Selected time is outside staff working hours.', 422, 'OUTSIDE_STAFF_SHIFT')
-            );
-        }
-    }
 }

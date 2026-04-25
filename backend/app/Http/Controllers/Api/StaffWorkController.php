@@ -7,37 +7,105 @@ use App\Http\Responses\ApiResponse;
 use App\Models\Appointment;
 use App\Models\StaffSchedule;
 use App\Models\WorkShift;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Schema;
 
 class StaffWorkController extends Controller
 {
+    private const BUSINESS_START = '07:00';
+    private const BUSINESS_END = '22:00';
+
     private function usesMixedItemSchema(): bool
     {
         return Schema::hasColumn('appointment_details', 'item_id');
     }
 
-    private function usesLegacyItemTypeValues(): bool
-    {
-        try {
-            $column = \Illuminate\Support\Facades\DB::selectOne("SHOW COLUMNS FROM appointment_details LIKE 'item_type'");
-            $type = strtolower((string) ($column->Type ?? ''));
-
-            return str_contains($type, "enum('skin','hair')") || str_contains($type, 'enum(\'skin\',\'hair\')');
-        } catch (\Throwable) {
-            return false;
-        }
-    }
-
     private function constrainServiceDetails($query, bool $usesMixedItemSchema, bool $usesLegacyItemTypeValues): void
     {
-        if ($usesMixedItemSchema && ! $usesLegacyItemTypeValues) {
-            $query->where('item_type', 'service');
+        $query->whereNotNull('service_id');
+    }
 
-            return;
+    private function timeToMinutes(string $time): int
+    {
+        [$hour, $minute] = array_pad(explode(':', $time, 2), 2, '0');
+
+        return ((int) $hour * 60) + (int) $minute;
+    }
+
+    private function businessWindowForView(string $view, Carbon $baseDate): array
+    {
+        if ($view === 'day') {
+            $from = $baseDate->copy()->startOfDay();
+            $to = $baseDate->copy()->endOfDay();
+        } else {
+            $from = $baseDate->copy()->startOfWeek()->startOfDay();
+            $to = $baseDate->copy()->endOfWeek()->endOfDay();
         }
 
-        $query->whereNotNull('service_id');
+        return [$from, $to];
+    }
+
+    private function formatScheduleAppointment(Appointment $appointment): array
+    {
+        $serviceDetails = $appointment->appointmentDetails
+            ->filter(function ($detail) {
+                return ! empty($detail->service_id);
+            })
+            ->filter(function ($detail) {
+                $startTime = (string) ($detail->start_time ?? '');
+                $endTime = (string) ($detail->end_time ?? '');
+                if ($startTime === '' || $endTime === '') {
+                    return false;
+                }
+
+                $startMinutes = $this->timeToMinutes(substr($startTime, 0, 5));
+                $endMinutes = $this->timeToMinutes(substr($endTime, 0, 5));
+
+                return $startMinutes >= $this->timeToMinutes(self::BUSINESS_START)
+                    && $endMinutes <= $this->timeToMinutes(self::BUSINESS_END)
+                    && $startMinutes < $endMinutes;
+            })
+            ->values();
+
+        $primaryDetail = $serviceDetails->first();
+        $serviceNames = $serviceDetails->map(function ($detail) {
+            return $detail->service?->service_name ?? 'Service';
+        })->filter()->values();
+
+        $startTime = $serviceDetails->min(fn ($detail) => (string) ($detail->start_time ?? '')) ?: null;
+        $endTime = $serviceDetails->max(fn ($detail) => (string) ($detail->end_time ?? '')) ?: null;
+
+        $status = 'Scheduled';
+        if ($appointment->status === 'cancelled' || ($appointment->status === 'inactive' && $appointment->payment_status !== 'pay')) {
+            $status = 'Cancelled';
+        } elseif ($appointment->status === 'inactive' || collect($serviceDetails)->contains(fn ($detail) => ($detail->status ?? null) === 'inactive')) {
+            $status = 'Completed';
+        }
+
+        return [
+            'appointment_id' => (int) $appointment->appointment_id,
+            'appointment_date' => $appointment->appointment_date,
+            'date' => $appointment->appointment_date?->toDateString(),
+            'start_time' => $startTime,
+            'end_time' => $endTime,
+            'customer_name' => $appointment->client?->client_name ?? 'Client',
+            'service_name' => $serviceNames->isNotEmpty() ? $serviceNames->implode(', ') : 'Service',
+            'status' => $status,
+            'assigned_staff_id' => (int) ($appointment->assigned_staff_id ?: ($primaryDetail->staff_id ?? 0)),
+            'assigned_staff_name' => $primaryDetail?->staff?->staff_name ?? 'Assigned staff',
+            'details' => $serviceDetails->map(function ($detail) {
+                return [
+                    'detail_id' => (int) $detail->detail_id,
+                    'staff_id' => (int) ($detail->staff_id ?? 0),
+                    'staff_name' => $detail->staff?->staff_name ?? 'Staff',
+                    'service_name' => $detail->service?->service_name ?? 'Service',
+                    'start_time' => $detail->start_time,
+                    'end_time' => $detail->end_time,
+                    'status' => ($detail->status ?? '') === 'inactive' ? 'Completed' : 'Scheduled',
+                ];
+            })->values(),
+        ];
     }
 
     private function isStaff(Request $request): bool
@@ -71,6 +139,64 @@ class StaffWorkController extends Controller
         return ApiResponse::success($items, 'Staff schedules retrieved.');
     }
 
+    public function schedule(Request $request)
+    {
+        if (! $this->isStaff($request)) {
+            return ApiResponse::error('Access denied.', 403, 'FORBIDDEN');
+        }
+
+        $view = $request->query('view', 'week');
+        if (! in_array($view, ['day', 'week'], true)) {
+            $view = 'week';
+        }
+
+        $baseDate = Carbon::parse($request->query('date', now()->toDateString()));
+        [$from, $to] = $this->businessWindowForView($view, $baseDate);
+
+        $usesMixedItemSchema = $this->usesMixedItemSchema();
+        $staffId = (int) $request->user()->getKey();
+
+        $appointments = Appointment::query()
+            ->with([
+                'client:client_id,client_name',
+                'appointmentDetails' => function ($q) use ($staffId, $usesMixedItemSchema) {
+                    $q->where('staff_id', $staffId)
+                        ->whereNotNull('start_time')
+                        ->whereNotNull('end_time')
+                        ->whereTime('start_time', '>=', self::BUSINESS_START.':00')
+                        ->whereTime('end_time', '<=', self::BUSINESS_END.':00');
+                    $this->constrainServiceDetails($q, $usesMixedItemSchema, false);
+                },
+                'appointmentDetails.staff:staff_id,staff_name',
+                'appointmentDetails.service',
+            ])
+            ->whereBetween('appointment_date', [$from, $to])
+            ->whereHas('appointmentDetails', function ($q) use ($staffId, $usesMixedItemSchema) {
+                $q->where('staff_id', $staffId);
+                $this->constrainServiceDetails($q, $usesMixedItemSchema, false);
+                $q->whereNotNull('start_time')
+                    ->whereNotNull('end_time')
+                    ->whereTime('start_time', '>=', self::BUSINESS_START.':00')
+                    ->whereTime('end_time', '<=', self::BUSINESS_END.':00');
+            })
+            ->orderBy('appointment_date')
+            ->get()
+            ->map(fn (Appointment $appointment) => $this->formatScheduleAppointment($appointment))
+            ->values();
+
+        return ApiResponse::success([
+            'view' => $view,
+            'date' => $baseDate->toDateString(),
+            'from' => $from->toISOString(),
+            'to' => $to->toISOString(),
+            'business_hours' => [
+                'start' => self::BUSINESS_START,
+                'end' => self::BUSINESS_END,
+            ],
+            'appointments' => $appointments,
+        ], 'Staff schedule retrieved.');
+    }
+
     public function appointments(Request $request)
     {
         if (! $this->isStaff($request)) {
@@ -79,28 +205,22 @@ class StaffWorkController extends Controller
 
         $staffId = (int) $request->user()->getKey();
         $usesMixedItemSchema = $this->usesMixedItemSchema();
-        $usesLegacyItemTypeValues = $this->usesLegacyItemTypeValues();
         $query = Appointment::query()
             ->with([
                 'client:client_id,client_name,phone,email',
                 'client.allergies:allergies.allergy_id,allergy_name',
-                'appointmentDetails' => function ($q) use ($staffId, $usesLegacyItemTypeValues, $usesMixedItemSchema) {
+                'appointmentDetails' => function ($q) use ($staffId, $usesMixedItemSchema) {
                     $q->where('staff_id', $staffId);
-                    $this->constrainServiceDetails($q, $usesMixedItemSchema, $usesLegacyItemTypeValues);
+                    $this->constrainServiceDetails($q, $usesMixedItemSchema, false);
                 },
                 'appointmentDetails.service',
-                'appointmentDetails.product',
                 'appointmentDetails.staff:staff_id,staff_name',
             ])
-            ->whereHas('appointmentDetails', function ($q) use ($staffId, $usesLegacyItemTypeValues, $usesMixedItemSchema) {
+            ->whereHas('appointmentDetails', function ($q) use ($staffId, $usesMixedItemSchema) {
                 $q->where('staff_id', $staffId);
-                $this->constrainServiceDetails($q, $usesMixedItemSchema, $usesLegacyItemTypeValues);
+                $this->constrainServiceDetails($q, $usesMixedItemSchema, false);
             })
             ->orderByDesc('appointment_date');
-
-        if ($usesMixedItemSchema) {
-            $query->with('appointmentDetails.item');
-        }
 
         if ($status = $request->query('status')) {
             $query->where('status', $status);

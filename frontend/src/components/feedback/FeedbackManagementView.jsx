@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import Badge from '../ui/Badge'
 import Button from '../ui/Button'
 import Card from '../ui/Card'
@@ -35,6 +35,8 @@ export default function FeedbackManagementView({ mode = 'admin' }) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [message, setMessage] = useState('')
+  const [fromDate, setFromDate] = useState('')
+  const [toDate, setToDate] = useState('')
   const [selectedFeedback, setSelectedFeedback] = useState(null)
   const [replyDraft, setReplyDraft] = useState('')
   const [submitting, setSubmitting] = useState(false)
@@ -45,11 +47,12 @@ export default function FeedbackManagementView({ mode = 'admin' }) {
       ? 'Track all customer feedback, inspect details, and send replies.'
       : 'Review feedback linked to your appointments and answer clients.'
 
-  const fetchFeedbacks = async () => {
+  const fetchFeedbacks = useCallback(async (filters = {}) => {
     setLoading(true)
     setError('')
     try {
-      const res = mode === 'admin' ? await businessApi.adminFeedbacks() : await businessApi.staffFeedbacks()
+      const params = filters.fromDate && filters.toDate ? { from_date: filters.fromDate, to_date: filters.toDate } : undefined
+      const res = mode === 'admin' ? await businessApi.adminFeedbacks(params) : await businessApi.staffFeedbacks(params)
       const rows = normalizeRows(res?.data?.data)
       setFeedbacks(rows)
     } catch (err) {
@@ -58,11 +61,21 @@ export default function FeedbackManagementView({ mode = 'admin' }) {
     } finally {
       setLoading(false)
     }
-  }
+  }, [mode])
 
   useEffect(() => {
     fetchFeedbacks()
-  }, [mode])
+  }, [fetchFeedbacks])
+
+  const handleApply = () => {
+    fetchFeedbacks({ fromDate, toDate })
+  }
+
+  const handleClear = () => {
+    setFromDate('')
+    setToDate('')
+    fetchFeedbacks()
+  }
 
   const pendingCount = useMemo(() => feedbacks.filter((row) => !row.reply).length, [feedbacks])
 
@@ -105,7 +118,24 @@ export default function FeedbackManagementView({ mode = 'admin' }) {
 
   return (
     <div className="zs-dashboard">
-      <PageHeader title={title} subtitle={subtitle} />
+      <PageHeader
+        title={title}
+        subtitle={subtitle}
+        action={
+          mode !== 'client' ? (
+            <div className="zs-action-row">
+              <input className="zs-input" type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} />
+              <input className="zs-input" type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} />
+              <Button type="button" variant="secondary" size="sm" onClick={handleApply} disabled={loading || (!fromDate && !toDate)}>
+                Apply
+              </Button>
+              <Button type="button" variant="ghost" size="sm" onClick={handleClear} disabled={loading && !fromDate && !toDate}>
+                Clear
+              </Button>
+            </div>
+          ) : null
+        }
+      />
 
       {error ? <div className="zs-feedback zs-feedback--error">{error}</div> : null}
       {message ? <div className="zs-feedback zs-feedback--success">{message}</div> : null}

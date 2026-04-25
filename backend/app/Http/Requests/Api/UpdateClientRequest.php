@@ -16,7 +16,7 @@ class UpdateClientRequest extends FormRequest
     {
         $id = (int) $this->route('id');
         $abilities = $this->user()?->currentAccessToken()?->abilities ?? [];
-        $isAdmin = in_array('admin', $abilities, true);
+        $isAdmin = in_array('admin', $abilities, true) || $this->user() instanceof \App\Models\Admin;
 
         return $isAdmin || (int) $this->user()?->getKey() === $id;
     }
@@ -69,9 +69,8 @@ class UpdateClientRequest extends FormRequest
             'membership_point' => ['nullable', 'integer', 'min:0', 'max:1000000'],
             'membership_tier' => ['nullable', Rule::in(['bronze', 'silver', 'gold', 'platinum'])],
             'allergy_ids' => ['nullable', 'array'],
-            'allergy_ids.*' => ['integer', Rule::exists('allergies', 'allergy_id')],
-            'custom_allergies' => ['nullable', 'array'],
-            'custom_allergies.*' => ['string', 'min:2', 'max:100'],
+            'allergy_ids.*' => ['distinct', 'integer', Rule::exists('allergies', 'allergy_id')],
+            'custom_allergies' => ['prohibited'],
         ];
     }
 

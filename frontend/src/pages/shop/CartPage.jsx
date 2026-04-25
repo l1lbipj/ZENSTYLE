@@ -157,19 +157,19 @@ export default function CartPage() {
       return
     }
 
+    const promoObj = appliedPromo
+      ? availablePromotions.find((p) => p.promotion_code && p.promotion_code.toLowerCase() === appliedPromo.toLowerCase())
+      : null
+
     const payload = {
       items: items.map((line) => ({
-        product_id: Number(line.id),
+        item_type: 'product',
+        item_id: Number(line.id),
         quantity: line.qty,
       })),
-      promo_code: appliedPromo || null,
-      payment_method: 'cod',
-      shipping: {
-        name: shippingForm.name.trim(),
-        phone: shippingForm.phone.trim(),
-        address: shippingForm.address.trim(),
-        note: shippingForm.note?.trim() || null,
-      },
+      promotion_id: promoObj?.promotion_id ?? null,
+      payment_method: 'cash',
+      notes: shippingForm.note?.trim() || null,
     }
 
     try {
@@ -181,7 +181,7 @@ export default function CartPage() {
       setAppliedPromo(null)
       setPendingPromo(null)
       writeSessionPromo(null)
-      notify.success(`Order #${order?.shop_order_id} placed successfully! Total: $${Number(order?.total_amount || 0).toFixed(2)}`)
+      notify.success(`Order ${order?.order_number || ''} placed. Total: $${Number(order?.final_amount || 0).toFixed(2)}`)
     } catch (err) {
       const msg =
         err?.response?.data?.message ||
@@ -353,10 +353,10 @@ export default function CartPage() {
         {checkoutDone ? (
           <div>
             <p>
-              Thanks, <strong>{checkoutDone.customer_name}</strong>. Your order #{checkoutDone.shop_order_id} was created.
+              Thanks, <strong>{checkoutDone.client?.client_name || checkoutDone.customer_name || shippingForm.name || 'Customer'}</strong>. Your order #{checkoutDone.order_number || checkoutDone.shop_order_id} was created.
             </p>
             <p>
-              Total: <strong>${Number(checkoutDone.total_amount || 0).toFixed(2)}</strong> ({checkoutDone.payment_method?.toUpperCase?.() || 'COD'})
+              Total: <strong>${Number(checkoutDone.final_amount || checkoutDone.total_amount || 0).toFixed(2)}</strong> ({(checkoutDone.payment_method || '').toUpperCase() || 'CASH'})
             </p>
             <button
               type="button"

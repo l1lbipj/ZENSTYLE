@@ -1,4 +1,6 @@
-const hours = Array.from({ length: 10 }, (_, i) => `${9 + i}:00`)
+const BUSINESS_START_HOUR = 7
+const BUSINESS_END_HOUR = 22
+const hours = Array.from({ length: BUSINESS_END_HOUR - BUSINESS_START_HOUR }, (_, i) => `${BUSINESS_START_HOUR + i}:00`)
 const defaultColumns = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 
 function hourOfTimeString(value) {
@@ -9,30 +11,53 @@ function hourOfTimeString(value) {
   return m ? `${Number(m[1].split(':')[0])}:${m[1].split(':')[1]}` : null
 }
 
-export default function CalendarView({ title = 'Today', columns = defaultColumns, busyItems = [] }) {
+function minutesOfTimeString(value) {
+  const normalized = hourOfTimeString(value)
+  if (!normalized) return null
+  const [hour, minute] = normalized.split(':')
+  return (Number(hour) * 60) + Number(minute)
+}
+
+function getDayIndex(item) {
+  const source = item?.appointment?.appointment_date || item?.appointment_date || item?.date
+  if (!source) return null
+  const d = new Date(source)
+  if (Number.isNaN(d.getTime())) return null
+  const jsDay = d.getDay()
+  return jsDay === 0 ? 6 : jsDay - 1
+}
+
+export default function CalendarView({ title = 'Today', columns = defaultColumns, busyItems = [], onBusyItemClick }) {
   const columnCount = columns.length
 
-  // build a set of busy keys like "colIndex-hour"
-  const busySet = new Set()
+  const busyMap = new Map()
   busyItems.forEach((item) => {
-    // item may be an appointment with appointment_date, or a schedule with date + check_in
-    const dateTime = item.appointment?.appointment_date || item.appointment_date || item.date || item.check_in
-    const hour = hourOfTimeString(dateTime)
-    if (!hour) return
-    // determine day column index based on weekday of date if available
-    let colIndex = null
-    if (item.appointment?.appointment_date || item.appointment_date || item.date) {
-      const d = new Date(item.appointment?.appointment_date || item.appointment_date || item.date)
-      // getDay(): 0=Sun,1=Mon,... convert to Monday-based index 0..6 where 0=Mon
-      const jsDay = d.getDay()
-      colIndex = jsDay === 0 ? 6 : jsDay - 1
-    } else if (item.shift_id || item.shift || item.check_in) {
-      // fallback: if only time is provided, we can't compute a day - skip
-      colIndex = null
+    const colIndex = getDayIndex(item)
+    if (colIndex === null || colIndex < 0 || colIndex >= columns.length) return
+
+    const startMinutes = minutesOfTimeString(item.start_time || item.appointment?.start_time || item.check_in || item.appointment?.appointment_date || item.appointment_date || item.date)
+    const endMinutes = minutesOfTimeString(item.end_time || item.appointment?.end_time || item.check_out || item.appointment?.appointment_date || item.appointment_date || item.date)
+    const fallbackHour = hourOfTimeString(item.appointment?.appointment_date || item.appointment_date || item.date || item.check_in)
+    const label = item.label || item.service_name || item.appointment?.service_name || item.appointment?.service?.service_name || 'Busy'
+
+    if (startMinutes !== null && endMinutes !== null && endMinutes > startMinutes) {
+      hours.forEach((hourLabel) => {
+        const hour = Number(hourLabel.split(':')[0])
+        const slotStart = hour * 60
+        const slotEnd = slotStart + 60
+        if (startMinutes < slotEnd && endMinutes > slotStart) {
+          const key = `${colIndex}-${hourLabel}`
+          if (!busyMap.has(key)) busyMap.set(key, [])
+          busyMap.get(key).push({ ...item, label })
+        }
+      })
+      return
     }
 
-    if (colIndex !== null && colIndex >= 0 && colIndex < columns.length) {
-      busySet.add(`${colIndex}-${hour}`)
+    if (fallbackHour) {
+      const key = `${colIndex}-${fallbackHour}`
+      if (!busyMap.has(key)) busyMap.set(key, [])
+      busyMap.get(key).push({ ...item, label })
     }
   })
 
@@ -61,8 +86,24 @@ export default function CalendarView({ title = 'Today', columns = defaultColumns
             <span className="zs-calendar__time">{hour}</span>
             {columns.map((col, index) => {
               const key = `${index}-${hour}`
-              const busy = busySet.has(key)
-              return <div key={`${hour}-${col}`} className={`zs-calendar__slot ${busy ? 'zs-calendar__slot--busy' : ''}`} />
+              const busyItemsForSlot = busyMap.get(key) || []
+              const busy = busyItemsForSlot.length > 0
+              const slotLabel = busy ? busyItemsForSlot[0].label : ''
+              const slotMeta = busy ? busyItemsForSlot[0] : null
+              return busy ? (
+                <button
+                  key={`${hour}-${col}`}
+                  type="button"
+                  className="zs-calendar__slot zs-calendar__slot--busy zs-calendar__slot--clickable"
+                  title={slotLabel}
+                  onClick={() => onBusyItemClick?.(slotMeta, busyItemsForSlot)}
+                >
+                  <span className="zs-calendar__slot-label">{slotLabel}</span>
+                  {busyItemsForSlot.length > 1 ? <span className="zs-calendar__slot-count">+{busyItemsForSlot.length - 1}</span> : null}
+                </button>
+              ) : (
+                <div key={`${hour}-${col}`} className="zs-calendar__slot" />
+              )
             })}
           </div>
         ))}

@@ -1,4 +1,5 @@
 @import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&family=Noto+Serif:ital,wght@0,600;0,700;1,500&display=swap');
+@import url('./styles/forms.css');
 
 :root {
   --primary-color: #2d3e33;

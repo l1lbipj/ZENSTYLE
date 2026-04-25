@@ -5,6 +5,9 @@ import Select from '../ui/Select'
 import { getLocalDateString } from '../../utils/date'
 
 const MAX_SERVICES = 3
+const BUSINESS_START_MINUTES = 7 * 60
+const BUSINESS_END_MINUTES = 22 * 60
+const SLOT_STEP_MINUTES = 30
 
 function newServiceRow() {
   return {
@@ -15,7 +18,21 @@ function newServiceRow() {
   }
 }
 
-export default function AppointmentForm({ onSubmit, loading = false, serviceOptions = [], staffOptions = [] }) {
+function minutesToTimeString(totalMinutes) {
+  const minutes = Math.max(0, Math.min(24 * 60 - 1, totalMinutes))
+  const hours = Math.floor(minutes / 60)
+  const mins = minutes % 60
+  return `${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')}`
+}
+
+function timeStringToMinutes(value) {
+  if (!value || typeof value !== 'string') return Number.NaN
+  const [hours, minutes] = value.split(':').map((item) => Number(item))
+  if (Number.isNaN(hours) || Number.isNaN(minutes)) return Number.NaN
+  return (hours * 60) + minutes
+}
+
+export default function AppointmentForm({ onSubmit, loading = false, serviceOptions = [], staffOptions = [], serviceDurationById = {} }) {
   const [formData, setFormData] = useState({
     date: '',
     services: [newServiceRow()],
@@ -46,6 +63,28 @@ export default function AppointmentForm({ onSubmit, loading = false, serviceOpti
       }, {}),
     [staffOptions],
   )
+
+  const timeOptionsByRow = useMemo(() => {
+    return formData.services.reduce((acc, row) => {
+      const duration = Number(serviceDurationById[row.service] || 60)
+      const latestStart = Math.max(BUSINESS_START_MINUTES, BUSINESS_END_MINUTES - duration)
+      const options = []
+
+      for (let minutes = BUSINESS_START_MINUTES; minutes <= latestStart; minutes += SLOT_STEP_MINUTES) {
+        const label = minutesToTimeString(minutes)
+        options.push({
+          value: label,
+          label: new Date(`2000-01-01T${label}:00`).toLocaleTimeString([], {
+            hour: 'numeric',
+            minute: '2-digit',
+          }),
+        })
+      }
+
+      acc[row.id] = options
+      return acc
+    }, {})
+  }, [formData.services, serviceDurationById])
 
   const handleDateChange = (event) => {
     const value = event.target.value
@@ -102,6 +141,16 @@ export default function AppointmentForm({ onSubmit, loading = false, serviceOpti
       if (row.staff && Number.isNaN(Number(row.staff))) newErrors[`${row.id}-staff`] = 'Staff is invalid'
       if (row.service && Number.isNaN(Number(row.service))) newErrors[`${row.id}-service`] = 'Service is invalid'
       if (!row.time) newErrors[`${row.id}-time`] = 'Time is required'
+
+      const startMinutes = timeStringToMinutes(row.time)
+      const duration = Number(serviceDurationById[row.service] || 60)
+      const endMinutes = startMinutes + duration
+
+      if (Number.isNaN(startMinutes)) {
+        newErrors[`${row.id}-time`] = 'Time is invalid'
+      } else if (startMinutes < BUSINESS_START_MINUTES || endMinutes > BUSINESS_END_MINUTES) {
+        newErrors[`${row.id}-time`] = 'Choose a time between 07:00 AM and 09:00 PM.'
+      }
     })
 
     setErrors(newErrors)
@@ -197,10 +246,10 @@ export default function AppointmentForm({ onSubmit, loading = false, serviceOpti
               </div>
 
               <div>
-                <Input
+                <Select
                   label="Start time"
                   name={`time-${row.id}`}
-                  type="time"
+                  options={[{ value: '', label: 'Select time' }, ...(timeOptionsByRow[row.id] || [])]}
                   value={row.time}
                   onChange={(e) => updateRow(row.id, 'time', e.target.value)}
                   required

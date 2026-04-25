@@ -1,94 +1,128 @@
-import { useEffect, useState } from 'react'
-import CalendarView from '../../components/calendar/CalendarView'
+import { useEffect, useMemo, useState } from 'react'
+import dayjs from 'dayjs'
 import businessApi from '../../Api/businessApi'
-import { formatDateWithWeekday, formatTime } from '../../utils/dateTime'
-import ScheduleSection from '../../components/staff/ScheduleSection'
+import StaffScheduleGrid from '../../components/staff/StaffScheduleGrid'
 import styles from './StaffPages.module.css'
 
 export default function StaffSchedulePage() {
-  const [schedules, setSchedules] = useState([])
+  const [view, setView] = useState('week')
+  const [selectedDate, setSelectedDate] = useState(dayjs().format('YYYY-MM-DD'))
+  const [schedule, setSchedule] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
   useEffect(() => {
     let mounted = true
 
-    const loadSchedules = async () => {
+    const loadSchedule = async () => {
       setLoading(true)
       setError('')
       try {
-        const [scheduleRes, dashboardRes] = await Promise.allSettled([
-          businessApi.staffSchedules({ sort: 'date:asc' }),
-          businessApi.dashboardStaff(),
-        ])
-
-        const scheduleItems =
-          scheduleRes.status === 'fulfilled'
-            ? scheduleRes.value?.data?.data?.data || scheduleRes.value?.data?.data?.items || []
-            : []
-
-        const fallbackItems =
-          dashboardRes.status === 'fulfilled'
-            ? dashboardRes.value?.data?.data?.today_schedule || []
-            : []
-
-        const merged = [...(Array.isArray(scheduleItems) ? scheduleItems : []), ...(Array.isArray(fallbackItems) ? fallbackItems : [])]
-
-        const uniqueById = Array.from(
-          new Map(merged.map((item) => [item.schedule_id ?? `${item.date}-${item.shift_id}-${item.check_in}`, item])).values(),
-        )
-
-        uniqueById.sort((a, b) => new Date(a.date || 0) - new Date(b.date || 0))
-        if (mounted) setSchedules(uniqueById)
+        const response = await businessApi.staffSchedule({ view, date: selectedDate })
+        if (!mounted) return
+        setSchedule(response?.data?.data || null)
       } catch (err) {
         if (!mounted) return
-        setError(err?.response?.data?.message || 'Unable to load schedules right now.')
+        setError(err?.response?.data?.message || 'Unable to load schedule right now.')
       } finally {
         if (mounted) setLoading(false)
       }
     }
 
-    loadSchedules()
+    loadSchedule()
+
     return () => {
       mounted = false
     }
-  }, [])
+  }, [selectedDate, view])
+
+  const visibleDateLabel = useMemo(() => {
+    const base = dayjs(selectedDate)
+    return view === 'day'
+      ? base.format('dddd, MMMM D, YYYY')
+      : schedule?.from && schedule?.to
+        ? `${dayjs(schedule.from).format('MMM D, YYYY')} - ${dayjs(schedule.to).format('MMM D, YYYY')}`
+        : base.startOf('week').format('MMM D, YYYY')
+  }, [schedule?.from, schedule?.to, selectedDate, view])
+
+  const handlePrevious = () => {
+    setSelectedDate((current) => dayjs(current).subtract(view === 'day' ? 1 : 7, 'day').format('YYYY-MM-DD'))
+  }
+
+  const handleNext = () => {
+    setSelectedDate((current) => dayjs(current).add(view === 'day' ? 1 : 7, 'day').format('YYYY-MM-DD'))
+  }
+
+  const handleToday = () => {
+    setSelectedDate(dayjs().format('YYYY-MM-DD'))
+    setView('day')
+  }
+
+  const appointments = schedule?.appointments || []
+  const businessHours = schedule?.business_hours || { start: '07:00', end: '22:00' }
 
   return (
     <div className={styles.page}>
       <div className={styles.container}>
         <header className={styles.header}>
           <h2 className={styles.title}>My schedule</h2>
-          <p className={styles.subtitle}>Review upcoming appointments and shift coverage.</p>
+          <p className={styles.subtitle}>
+            Appointment-driven schedule grid within business hours only.
+          </p>
         </header>
 
         <section className={styles.card}>
-          <h3 className={styles.cardTitle}>Weekly calendar</h3>
-          <CalendarView
-            title="This week"
-            columns={['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']}
-            busyItems={schedules}
-          />
-        </section>
+          <div className={styles.scheduleToolbar}>
+            <div className={styles.viewSwitch}>
+              <button
+                type="button"
+                className={`${styles.viewButton} ${view === 'day' ? styles.viewButtonActive : ''}`}
+                onClick={() => setView('day')}
+              >
+                Day
+              </button>
+              <button
+                type="button"
+                className={`${styles.viewButton} ${view === 'week' ? styles.viewButtonActive : ''}`}
+                onClick={() => setView('week')}
+              >
+                Week
+              </button>
+            </div>
 
-        <ScheduleSection
-          title="Work schedule"
-          description="Sorted by nearest working day."
-          loading={loading}
-          error={error}
-          emptyMessage="No schedule assigned yet."
-          columns={[
-            { key: 'date', label: 'Date' },
-            { key: 'shift', label: 'Shift' },
-            { key: 'time', label: 'Time range' },
-          ]}
-          rows={schedules.map((shift) => ({
-            key: shift.schedule_id ?? `${shift.date}-${shift.shift_id}-${shift.check_in}`,
-            date: formatDateWithWeekday(shift.date),
-            shift: shift.shift?.shift_name || shift.shift_name || 'Shift',
-            time: `${formatTime(shift.check_in)} - ${formatTime(shift.check_out)}`,
-          }))}
-        />
+            <div className={styles.dateNav}>
+              <button type="button" className={styles.navButton} onClick={handlePrevious}>
+                Previous
+              </button>
+              <button type="button" className={styles.navButton} onClick={handleToday}>
+                Today
+              </button>
+              <button type="button" className={styles.navButton} onClick={handleNext}>
+                Next
+              </button>
+            </div>
+
+            <div className={styles.scheduleMeta}>
+              <span className={styles.metaLabel}>Showing</span>
+              <strong className={styles.metaValue}>{visibleDateLabel}</strong>
+            </div>
+          </div>
+
+          {loading ? (
+            <p className={styles.state}>Loading schedule...</p>
+          ) : error ? (
+            <p className={`${styles.state} ${styles.stateError}`}>{error}</p>
+          ) : (
+            <StaffScheduleGrid
+              view={schedule?.view || view}
+              date={schedule?.date || selectedDate}
+              from={schedule?.from}
+              to={schedule?.to}
+              businessHours={businessHours}
+              appointments={appointments}
+            />
+          )}
+        </section>
       </div>
     </div>
   )

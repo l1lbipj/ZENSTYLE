@@ -128,6 +128,10 @@
   gap: 0.35rem;
 }
 
+.zs-nav__notifications {
+  position: relative;
+}
+
 .zs-nav__icon {
   color: var(--text-main);
 }
@@ -147,6 +151,105 @@
 
 .zs-nav__icon-btn:hover {
   background: rgba(45, 62, 51, 0.06);
+}
+
+.zs-nav__icon-btn--notifications {
+  position: relative;
+}
+
+.zs-nav__dot {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  background: #d84b4b;
+  box-shadow: 0 0 0 2px #ffffff;
+}
+
+.zs-nav__panel {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 0.6rem);
+  width: min(360px, calc(100vw - 1.5rem));
+  background: #fffaf4;
+  border: 1px solid rgba(45, 62, 51, 0.12);
+  border-radius: 18px;
+  box-shadow: 0 18px 40px rgba(30, 40, 35, 0.16);
+  overflow: hidden;
+  z-index: 70;
+}
+
+.zs-nav__panel-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: center;
+  padding: 0.9rem 1rem;
+  border-bottom: 1px solid rgba(45, 62, 51, 0.08);
+  color: var(--olive-deep);
+}
+
+.zs-nav__panel-head strong {
+  font-size: 0.95rem;
+}
+
+.zs-nav__panel-head span {
+  font-size: 0.8rem;
+  color: var(--text-soft);
+}
+
+.zs-nav__panel-body {
+  max-height: 340px;
+  overflow: auto;
+  display: grid;
+}
+
+.zs-nav__panel-empty {
+  margin: 0;
+  padding: 1rem;
+  color: var(--text-muted);
+}
+
+.zs-nav__notification {
+  display: grid;
+  gap: 0.25rem;
+  padding: 0.95rem 1rem;
+  border: 0;
+  border-bottom: 1px solid rgba(45, 62, 51, 0.08);
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+
+.zs-nav__notification:hover {
+  background: rgba(45, 62, 51, 0.04);
+}
+
+.zs-nav__notification.is-unread {
+  background: rgba(216, 75, 75, 0.05);
+}
+
+.zs-nav__notification:last-child {
+  border-bottom: 0;
+}
+
+.zs-nav__notification-title {
+  font-weight: 700;
+  color: var(--olive-deep);
+}
+
+.zs-nav__notification-message {
+  font-size: 0.9rem;
+  line-height: 1.45;
+  color: var(--text-muted);
+  white-space: pre-line;
+}
+
+.zs-nav__notification-time {
+  font-size: 0.78rem;
+  color: var(--text-soft);
 }
 
 .zs-nav__login {

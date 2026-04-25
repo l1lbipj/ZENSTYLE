@@ -15,13 +15,13 @@ const navSections = [
     items: [
       { label: 'Book appointment', to: '/client/book', icon: 'calendar' },
       { label: 'My appointments', to: '/client/appointments', icon: 'calendar' },
+      { label: 'My orders', to: '/client/orders', icon: 'cart' },
       { label: 'Service history', to: '/client/history', icon: 'calendar' },
     ],
   },
   {
     title: 'Benefits',
     items: [
-      { label: 'Rewards', to: '/client/rewards', icon: 'gift' },
       { label: 'Feedback', to: '/client/feedback', icon: 'chat' },
       { label: 'Products', to: '/products', icon: 'gift' },
     ],

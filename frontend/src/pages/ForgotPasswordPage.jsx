@@ -90,6 +90,9 @@ export default function ForgotPasswordPage() {
             <p style={{ color: '#6b7280', marginBottom: '22px' }}>
               Enter your registered email to receive a 5-digit OTP.
             </p>
+            <p style={{ color: '#6b7280', marginBottom: '22px', fontSize: '14px' }}>
+              Demo accounts: <strong>admin@zenstyle.com</strong>, <strong>staff1@zenstyle.com</strong>, <strong>client1@zenstyle.com</strong>
+            </p>
             <Form layout="vertical" onFinish={onFinish}>
               <Form.Item
                 label="Email"

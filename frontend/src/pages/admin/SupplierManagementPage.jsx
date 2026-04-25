@@ -4,6 +4,9 @@ import PageHeader from '../../components/ui/PageHeader'
 import Section from '../../components/ui/Section'
 import Modal from '../../components/ui/Modal'
 import businessApi from '../../Api/businessApi'
+import useFormDraft from '../../hooks/useFormDraft'
+import { FormActions, FormSection, InputField } from '../../components/forms/FormField'
+import ConfirmModal from '../../components/forms/ConfirmModal'
 
 const columns = [
   { key: 'supplier', header: 'Supplier' },
@@ -16,7 +19,17 @@ export default function SupplierManagementPage() {
   const [query, setQuery] = useState('')
   const [modalOpen, setModalOpen] = useState(false)
   const [editing, setEditing] = useState(null)
-  const [form, setForm] = useState({ supplier_name: '', email: '', phone: '' })
+  const [serverError, setServerError] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [deleteTarget, setDeleteTarget] = useState(null)
+  const form = useFormDraft({ supplier_name: '', email: '', phone: '' }, (values) => {
+    const errors = {}
+    if (!String(values.supplier_name || '').trim()) errors.supplier_name = 'Supplier name is required.'
+    if (!String(values.email || '').trim()) errors.email = 'Email is required.'
+    if (values.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(values.email)) errors.email = 'Enter a valid email address.'
+    if (values.phone && String(values.phone).trim().length > 20) errors.phone = 'Phone number is too long.'
+    return errors
+  })
 
   const loadData = () => {
     businessApi.suppliers({ per_page: 100 }).then((res) => {
@@ -42,13 +55,15 @@ export default function SupplierManagementPage() {
 
   const openCreate = () => {
     setEditing(null)
-    setForm({ supplier_name: '', email: '', phone: '' })
+    setServerError('')
+    form.reset({ supplier_name: '', email: '', phone: '' })
     setModalOpen(true)
   }
 
   const openEdit = (item) => {
     setEditing(item)
-    setForm({
+    setServerError('')
+    form.reset({
       supplier_name: item.raw.supplier_name,
       email: item.raw.email,
       phone: item.raw.phone || '',
@@ -56,17 +71,38 @@ export default function SupplierManagementPage() {
     setModalOpen(true)
   }
 
-  const handleSubmit = (event) => {
+  const handleSubmit = async (event) => {
     event.preventDefault()
-    const action = editing ? businessApi.updateSupplier(editing.id, form) : businessApi.createSupplier(form)
-    action.then(() => {
+    setServerError('')
+    const errors = form.validateAll()
+    if (Object.keys(errors).length > 0) return
+    setSaving(true)
+    const payload = {
+      supplier_name: form.values.supplier_name.trim(),
+      email: form.values.email.trim(),
+      phone: form.values.phone.trim() || null,
+    }
+    try {
+      const action = editing ? businessApi.updateSupplier(editing.id, payload) : businessApi.createSupplier(payload)
+      await action
       setModalOpen(false)
       loadData()
-    })
+    } catch (err) {
+      setServerError(err?.response?.data?.message || err?.message || 'Unable to save supplier.')
+    } finally {
+      setSaving(false)
+    }
   }
 
-  const removeSupplier = (id) => {
-    businessApi.deleteSupplier(id).then(() => loadData())
+  const removeSupplier = async () => {
+    if (!deleteTarget) return
+    try {
+      await businessApi.deleteSupplier(deleteTarget.id)
+      await loadData()
+      setDeleteTarget(null)
+    } catch (err) {
+      setServerError(err?.response?.data?.message || err?.message || 'Unable to delete supplier.')
+    }
   }
 
   return (
@@ -81,6 +117,7 @@ export default function SupplierManagementPage() {
           </button>
         }
       >
+        {serverError ? <div className="zs-feedback zs-feedback--error">{serverError}</div> : null}
         <div className="zs-toolbar">
           <input className="zs-input zs-toolbar__input" placeholder="Search suppliers..." value={query} onChange={(event) => setQuery(event.target.value)} />
         </div>
@@ -91,22 +128,54 @@ export default function SupplierManagementPage() {
           renderActions={(row) => (
             <div className="zs-table__actions">
               <button type="button" className="zs-btn zs-btn--ghost zs-btn--sm" onClick={() => openEdit(row)}>Edit</button>
-              <button type="button" className="zs-btn zs-btn--ghost zs-btn--sm" onClick={() => removeSupplier(row.id)}>Delete</button>
+              <button type="button" className="zs-btn zs-btn--ghost zs-btn--sm" onClick={() => setDeleteTarget(row)}>Delete</button>
             </div>
           )}
         />
       </Section>
       <Modal open={modalOpen} title={editing ? 'Edit supplier' : 'Add supplier'} onClose={() => setModalOpen(false)}>
         <form className="zs-form" onSubmit={handleSubmit}>
-          <input className="zs-input" placeholder="Supplier name" value={form.supplier_name} onChange={(e) => setForm((p) => ({ ...p, supplier_name: e.target.value }))} required />
-          <input className="zs-input" placeholder="Contact email" value={form.email} onChange={(e) => setForm((p) => ({ ...p, email: e.target.value }))} required />
-          <input className="zs-input" placeholder="Phone" value={form.phone} onChange={(e) => setForm((p) => ({ ...p, phone: e.target.value }))} />
-          <div className="zs-action-row">
-            <button type="submit" className="zs-btn zs-btn--primary">Save</button>
-            <button type="button" className="zs-btn zs-btn--ghost" onClick={() => setModalOpen(false)}>Cancel</button>
-          </div>
+          <FormSection title="Supplier information" description="Keep contact details complete so purchasing and follow-up stay reliable.">
+            <InputField
+              label="Supplier name"
+              required
+              placeholder="Silk & Shine Wholesale"
+              {...form.bindInput('supplier_name')}
+              error={form.touched.supplier_name ? form.errors.supplier_name : ''}
+            />
+            <InputField
+              label="Contact email"
+              required
+              type="email"
+              placeholder="supplier@company.com"
+              {...form.bindInput('email')}
+              error={form.touched.email ? form.errors.email : ''}
+            />
+            <InputField
+              label="Phone"
+              type="tel"
+              placeholder="+1 555 000 0000"
+              {...form.bindInput('phone')}
+              error={form.touched.phone ? form.errors.phone : ''}
+            />
+          </FormSection>
+          <FormActions
+            primaryLabel={editing ? (saving ? 'Saving...' : 'Save Changes') : (saving ? 'Creating...' : 'Create Supplier')}
+            onSecondary={() => setModalOpen(false)}
+            primaryProps={{ disabled: saving || (!!editing && !form.dirty) || form.hasErrors }}
+            secondaryProps={{ disabled: saving }}
+          />
         </form>
       </Modal>
+      <ConfirmModal
+        open={Boolean(deleteTarget)}
+        title="Delete supplier"
+        message={`Are you sure you want to delete "${deleteTarget?.supplier || ''}"?`}
+        confirmLabel="Delete"
+        danger
+        onConfirm={removeSupplier}
+        onClose={() => setDeleteTarget(null)}
+      />
     </div>
   )
 }

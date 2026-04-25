@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import Badge from '../../components/ui/Badge'
 import Card from '../../components/ui/Card'
@@ -7,29 +7,56 @@ import Section from '../../components/ui/Section'
 import businessApi from '../../Api/businessApi'
 import { formatDateTime } from '../../utils/dateTime'
 
+const CHECK_IN_OPEN_MINUTES_BEFORE = 60
+const CHECK_IN_CLOSE_MINUTES_BEFORE = 30
+
+function asDate(value) {
+  const parsed = new Date(value)
+  return Number.isNaN(parsed.getTime()) ? null : parsed
+}
+
+function getServiceNames(details) {
+  return details
+    .map((detail) => detail?.service?.service_name)
+    .filter(Boolean)
+}
+
 function getAppointmentPresentation(item) {
   const details = item.appointment_details || item.appointmentDetails || []
-  const firstDetail = details[0]
-  const serviceName =
-    firstDetail?.item?.service_name ||
-    firstDetail?.service?.service_name ||
-    firstDetail?.item?.product_name ||
-    firstDetail?.product?.product_name ||
-    'Service'
-  const staffName = firstDetail?.staff?.staff_name || 'TBD'
-  const appointmentTime = new Date(item.appointment_date)
-  const isUpcoming = appointmentTime > new Date()
-  const isClosed = item.status === 'inactive'
+  const serviceNames = getServiceNames(details)
+  const appointmentDate = asDate(item.appointment_date)
+  const attendanceStatus = item.attendance_status || 'Pending'
+  const isActive = item.status === 'active'
+  const isCancelled = attendanceStatus === 'Cancelled'
+  const isCompleted = attendanceStatus === 'Completed'
+  const isMissed = attendanceStatus === 'Missed'
+  const canCheckIn = Boolean(item.can_check_in) || false
+  const canCheckOut = Boolean(item.can_check_out) || false
+  const canManage = isActive && attendanceStatus === 'Pending'
 
   return {
     id: item.appointment_id,
-    serviceName,
-    staffName,
+    serviceName: serviceNames[0] || 'Service',
+    serviceSummary: serviceNames.length > 0 ? serviceNames.join(', ') : 'Service',
+    staffName: details[0]?.staff?.staff_name || 'TBD',
     timeLabel: formatDateTime(item.appointment_date),
-    canReschedule: isUpcoming && !isClosed,
-    tone: isClosed ? 'neutral' : isUpcoming ? 'accent' : 'success',
-    label: isClosed ? 'Completed / Closed' : isUpcoming ? 'Upcoming' : 'In progress',
+    appointmentDate,
+    attendanceStatus,
+    statusLabel: isCancelled ? 'Cancelled' : isCompleted ? 'Completed' : isMissed ? 'Missed' : canCheckIn ? 'Ready for check-in' : canCheckOut ? 'In progress' : 'Pending',
+    tone: isCancelled ? 'neutral' : isCompleted ? 'success' : isMissed ? 'warning' : canCheckIn ? 'accent' : canCheckOut ? 'warning' : 'neutral',
+    canCheckIn,
+    canCheckOut,
+    canManage,
+    isActive,
   }
+}
+
+function isWithinClientWindow(appointmentDate) {
+  if (!appointmentDate) return false
+  const now = new Date()
+  const windowOpen = new Date(appointmentDate.getTime() - CHECK_IN_OPEN_MINUTES_BEFORE * 60 * 1000)
+  const windowClose = new Date(appointmentDate.getTime() - CHECK_IN_CLOSE_MINUTES_BEFORE * 60 * 1000)
+  return now >= windowOpen && now <= windowClose
 }
 
 export default function ClientAppointmentsPage() {
@@ -39,8 +66,9 @@ export default function ClientAppointmentsPage() {
   const [message, setMessage] = useState('')
   const [messageTone, setMessageTone] = useState('success')
   const [loading, setLoading] = useState(true)
+  const [actionState, setActionState] = useState({ id: null, type: null })
 
-  const loadAppointments = () => {
+  const loadAppointments = useCallback(() => {
     setLoading(true)
     businessApi
       .appointments({ per_page: 50 })
@@ -54,15 +82,53 @@ export default function ClientAppointmentsPage() {
       .finally(() => {
         setLoading(false)
       })
-  }
-
-  useEffect(() => {
-    loadAppointments()
   }, [])
 
-  const mappedAppointments = useMemo(() => appointments.map((item) => getAppointmentPresentation(item)), [appointments])
-  const upcomingAppointments = mappedAppointments.filter((item) => item.canReschedule)
-  const recentAppointments = mappedAppointments.filter((item) => !item.canReschedule)
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      loadAppointments()
+    }, 0)
+
+    return () => {
+      clearTimeout(timer)
+    }
+  }, [loadAppointments])
+
+  const mappedAppointments = useMemo(
+    () =>
+      appointments.map((item) => {
+        const presentation = getAppointmentPresentation(item)
+        return {
+          ...presentation,
+          raw: item,
+          canCheckIn: presentation.canCheckIn || (item.status === 'active' && presentation.attendanceStatus === 'Pending' && isWithinClientWindow(presentation.appointmentDate)),
+          canCheckOut: presentation.canCheckOut || presentation.attendanceStatus === 'Checked-In',
+        }
+      }),
+    [appointments],
+  )
+
+  const activeAppointments = mappedAppointments.filter(
+    (item) => item.isActive && ['Pending', 'Checked-In'].includes(item.attendanceStatus),
+  )
+  const pastAppointments = mappedAppointments.filter(
+    (item) => !item.isActive || ['Completed', 'Cancelled', 'Missed'].includes(item.attendanceStatus),
+  )
+
+  const performAction = async (id, type, action, successMessage) => {
+    setActionState({ id, type })
+    try {
+      await action(id)
+      setMessageTone('success')
+      setMessage(successMessage)
+      loadAppointments()
+    } catch (err) {
+      setMessageTone('error')
+      setMessage(err?.response?.data?.message || `${type} failed.`)
+    } finally {
+      setActionState({ id: null, type: null })
+    }
+  }
 
   const handleReschedule = async (id) => {
     const value = rescheduleValues[id]
@@ -71,34 +137,27 @@ export default function ClientAppointmentsPage() {
       setMessage('Please choose a new date and time first.')
       return
     }
-    try {
-      await businessApi.rescheduleAppointment(id, { appointment_date: value })
-      setMessageTone('success')
-      setMessage('Appointment rescheduled successfully.')
-      loadAppointments()
-    } catch (err) {
-      setMessageTone('error')
-      setMessage(err?.response?.data?.message || 'Reschedule failed.')
-    }
+
+    await performAction(id, 'reschedule', (appointmentId) => businessApi.rescheduleAppointment(appointmentId, { appointment_date: value }), 'Appointment rescheduled successfully.')
   }
 
   const handleCancel = async (id) => {
-    try {
-      await businessApi.cancelAppointment(id)
-      setMessageTone('success')
-      setMessage('Appointment cancelled successfully.')
-      loadAppointments()
-    } catch (err) {
-      setMessageTone('error')
-      setMessage(err?.response?.data?.message || 'Cancel failed.')
-    }
+    await performAction(id, 'cancel', (appointmentId) => businessApi.cancelAppointment(appointmentId), 'Appointment cancelled successfully.')
+  }
+
+  const handleCheckIn = async (id) => {
+    await performAction(id, 'check-in', (appointmentId) => businessApi.checkInAppointment(appointmentId), 'Check-in completed successfully.')
+  }
+
+  const handleCheckOut = async (id) => {
+    await performAction(id, 'check-out', (appointmentId) => businessApi.checkOutAppointment(appointmentId), 'Check-out completed successfully.')
   }
 
   return (
     <div className="zs-dashboard">
       <PageHeader
         title="My appointments"
-        subtitle="View your upcoming visits, adjust the time if needed, and keep track of past bookings."
+        subtitle="Track upcoming visits, check in at the right time, and review your appointment history."
         action={
           <Link className="zs-btn zs-btn--primary zs-btn--sm" to="/client/book">
             Book appointment
@@ -111,32 +170,34 @@ export default function ClientAppointmentsPage() {
 
       <div className="zs-dashboard__row">
         <Card title="Upcoming bookings" description="Appointments you can still manage.">
-          <h3 style={{ margin: 0 }}>{upcomingAppointments.length}</h3>
+          <h3 style={{ margin: 0 }}>{activeAppointments.length}</h3>
         </Card>
         <Card title="Past or closed visits" description="Your appointment history so far.">
-          <h3 style={{ margin: 0 }}>{recentAppointments.length}</h3>
+          <h3 style={{ margin: 0 }}>{pastAppointments.length}</h3>
         </Card>
       </div>
 
-      <Section title="Upcoming appointments" description="These bookings can still be rescheduled or cancelled.">
+      <Section title="Upcoming appointments" description="Check in within the allowed window, or cancel/reschedule while the visit is still pending.">
         {loading ? <p className="zs-card__description">Loading appointments...</p> : null}
-        {!loading && upcomingAppointments.length === 0 ? (
+        {!loading && activeAppointments.length === 0 ? (
           <Card title="Nothing upcoming" description="You do not have any upcoming appointments right now.">
             <Link className="zs-btn zs-btn--primary zs-btn--sm" to="/client/book">
               Book your next visit
             </Link>
           </Card>
         ) : null}
-        {!loading && upcomingAppointments.length > 0 ? (
+        {!loading && activeAppointments.length > 0 ? (
           <div className="zs-dashboard__row">
-            {upcomingAppointments.map((item) => (
+            {activeAppointments.map((item) => (
               <Card
                 key={item.id}
-                title={item.serviceName}
+                title={item.serviceSummary}
                 description={item.timeLabel}
-                actions={<Badge tone={item.tone}>{item.label}</Badge>}
+                actions={<Badge tone={item.tone}>{item.statusLabel}</Badge>}
               >
+                <p className="zs-card__description">Service: {item.serviceName}</p>
                 <p className="zs-card__description">Staff: {item.staffName}</p>
+                <p className="zs-card__description">Attendance: {item.attendanceStatus}</p>
                 <div className="zs-form">
                   <label className="zs-field">
                     <span className="zs-field__label">Choose a new time</span>
@@ -145,13 +206,40 @@ export default function ClientAppointmentsPage() {
                       type="datetime-local"
                       value={rescheduleValues[item.id] || ''}
                       onChange={(event) => setRescheduleValues((prev) => ({ ...prev, [item.id]: event.target.value }))}
+                      disabled={!item.canManage}
                     />
                   </label>
-                  <div className="zs-action-row">
-                    <button type="button" className="zs-btn zs-btn--ghost zs-btn--sm" onClick={() => handleReschedule(item.id)}>
+                  <div className="zs-action-row" style={{ flexWrap: 'wrap' }}>
+                    <button
+                      type="button"
+                      className="zs-btn zs-btn--ghost zs-btn--sm"
+                      onClick={() => handleCheckIn(item.id)}
+                      disabled={!item.canCheckIn || actionState.id === item.id}
+                    >
+                      {actionState.id === item.id && actionState.type === 'check-in' ? 'Checking in...' : 'Check In'}
+                    </button>
+                    <button
+                      type="button"
+                      className="zs-btn zs-btn--ghost zs-btn--sm"
+                      onClick={() => handleCheckOut(item.id)}
+                      disabled={!item.canCheckOut || actionState.id === item.id}
+                    >
+                      {actionState.id === item.id && actionState.type === 'check-out' ? 'Checking out...' : 'Check Out'}
+                    </button>
+                    <button
+                      type="button"
+                      className="zs-btn zs-btn--ghost zs-btn--sm"
+                      onClick={() => handleReschedule(item.id)}
+                      disabled={!item.canManage || actionState.id === item.id}
+                    >
                       Reschedule
                     </button>
-                    <button type="button" className="zs-btn zs-btn--ghost zs-btn--sm" onClick={() => handleCancel(item.id)}>
+                    <button
+                      type="button"
+                      className="zs-btn zs-btn--ghost zs-btn--sm"
+                      onClick={() => handleCancel(item.id)}
+                      disabled={!item.canManage || actionState.id === item.id}
+                    >
                       Cancel
                     </button>
                   </div>
@@ -163,17 +251,27 @@ export default function ClientAppointmentsPage() {
       </Section>
 
       <Section title="Recent appointments" description="A quick look back at your appointment history.">
-        {!loading && recentAppointments.length === 0 ? <p className="zs-card__description">No past appointments yet.</p> : null}
-        {!loading && recentAppointments.length > 0 ? (
+        {!loading && pastAppointments.length === 0 ? <p className="zs-card__description">No past appointments yet.</p> : null}
+        {!loading && pastAppointments.length > 0 ? (
           <div className="zs-dashboard__row">
-            {recentAppointments.map((item) => (
+            {pastAppointments.map((item) => (
               <Card
                 key={item.id}
-                title={item.serviceName}
+                title={item.serviceSummary}
                 description={item.timeLabel}
-                actions={<Badge tone={item.tone}>{item.label}</Badge>}
+                actions={<Badge tone={item.tone}>{item.statusLabel}</Badge>}
               >
+                <p className="zs-card__description">Service: {item.serviceName}</p>
                 <p className="zs-card__description">Staff: {item.staffName}</p>
+                <p className="zs-card__description">Attendance: {item.attendanceStatus}</p>
+                <div className="zs-action-row" style={{ flexWrap: 'wrap' }}>
+                  <button type="button" className="zs-btn zs-btn--ghost zs-btn--sm" disabled>
+                    Check In
+                  </button>
+                  <button type="button" className="zs-btn zs-btn--ghost zs-btn--sm" disabled>
+                    Check Out
+                  </button>
+                </div>
               </Card>
             ))}
           </div>
